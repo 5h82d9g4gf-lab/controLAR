@@ -1100,6 +1100,13 @@ function configurarRecorrentesJulho() {
   });
 
   state._migJulho2026 = true;
+
+  // Corrigir Leyde em junho (mês de transição — ainda estava com valor antigo)
+  const junhoLans = state.meses?.['2026-06']?.lancamentos || [];
+  junhoLans.forEach(l => {
+    if (/leyde/i.test(l.desc) && l.cat === 'Funcionários') l.valor = 3100;
+  });
+
   salvar();
 }
 
@@ -1659,19 +1666,12 @@ function preencherValoresVencimentos() {
   ];
 
   state.vencimentos.forEach(v => {
-    // Cartões: média mensal
-    if (/cartão xp|cartao xp/i.test(v.desc)) {
-      const m = mediaCartao('XP'); if (m > 0) v.valor = m; return;
-    }
-    if (/cartão nubank|cartao nubank/i.test(v.desc)) {
-      const m = mediaCartao('Nubank'); if (m > 0) v.valor = m; return;
-    }
-    // Demais: valor mais recente encontrado
+    // Cartões: marcados como dinâmicos — valor calculado na hora da renderização
+    if (/cartão xp|cartao xp/i.test(v.desc))     { v._cartaoTag = 'XP';     v.valor = 0; return; }
+    if (/cartão nubank|cartao nubank/i.test(v.desc)){ v._cartaoTag = 'Nubank'; v.valor = 0; return; }
+    // Demais: valor mais recente
     const regra = regras.find(r => r.desc.toLowerCase() === v.desc.toLowerCase());
-    if (regra) {
-      const val = valorRecente(regra.fn);
-      if (val > 0) v.valor = val;
-    }
+    if (regra) { const val = valorRecente(regra.fn); if (val > 0) v.valor = val; }
   });
 
   salvar();
@@ -2026,6 +2026,16 @@ function corVenc(dias) {
   return         { bg:'#f0fdf4', txt:'#16a34a', badge:'#22c55e', label: `${dias}d` };
 }
 
+function valorVencimento(v) {
+  // Cartões: soma dos gastos tagueados no mês atual do dashboard
+  if (v._cartaoTag) {
+    const lans = getMes(chaveMs(viewDate)).lancamentos;
+    return lans.filter(l => l.cartao === v._cartaoTag && l.tipo === 'gasto')
+               .reduce((s, l) => s + l.valor, 0);
+  }
+  return v.valor || 0;
+}
+
 function renderVencimentos() {
   const venc = getVencimentos();
   const mostrarPagos = document.getElementById('vencMostrarPagos')?.checked;
@@ -2038,10 +2048,10 @@ function renderVencimentos() {
   const sorted = [...ativos].sort((a,b) => diasAteVencer(a) - diasAteVencer(b));
 
   // Resumo
-  const emAtraso  = venc.filter(v => !v.pago && diasAteVencer(v) < 0);
+  const emAtraso   = venc.filter(v => !v.pago && diasAteVencer(v) < 0);
   const estaSemana = venc.filter(v => !v.pago && diasAteVender(v) >= 0 && diasAteVender(v) <= 7);
   const totalMes   = venc.filter(v => !v.pago && diasAteVender(v) >= 0 && diasAteVender(v) <= 31)
-                         .reduce((s,v) => s + (v.valor||0), 0);
+                         .reduce((s,v) => s + valorVencimento(v), 0);
 
   resumo.innerHTML = `
     <div class="venc-resumo-card" style="background:#fef2f2;">
@@ -2076,7 +2086,7 @@ function renderVencimentos() {
           <div class="venc-meta">${v.cat} · ${v.pessoa} · ${recStr} · ${dataStr}</div>
         </div>
         <span class="venc-dias" style="background:${cor.bg};color:${cor.txt};">${cor.label}</span>
-        <div class="venc-valor">${v.valor ? fmt(v.valor) : '—'}</div>
+        <div class="venc-valor">${valorVencimento(v) > 0 ? fmt(valorVencimento(v)) : '—'}</div>
         <button class="venc-pago-btn" onclick="togglePagoVenc(${v.id})" title="${v.pago?'Marcar como pendente':'Marcar como pago'}">${v.pago?'↩️':'✅'}</button>
         <button class="btn-del" onclick="abrirModalVenc(${v.id})" title="Editar">✏️</button>
         <button class="btn-del" onclick="removerVenc(${v.id})" title="Remover">×</button>
