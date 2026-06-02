@@ -1597,6 +1597,59 @@ function seedCartaoXPMaio2026() {
   salvar();
 }
 
+// ─── Propagar parcelas XP maio/2026 no dashboard ─────────────────────────
+function propagarParcelasXPMaio() {
+  if (state._propagXPMaio) return;
+
+  const itemsMaio = state.cartoes?.['XP']?.['2026-05'] || [];
+
+  // Chave do mês com offset em relação a maio/2026
+  function chaveOffset(offset) {
+    const d = new Date(2026, 4 + offset, 1); // 4 = maio (JS)
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  }
+
+  // Verifica se já existe item equivalente no mês (evita duplicatas)
+  function jaExiste(chave, desc, valor, parcelaAtual) {
+    return (state.meses?.[chave]?.lancamentos || []).some(l =>
+      l.desc === desc &&
+      Math.abs(l.valor - valor) < 0.10 &&
+      l.parcela?.atual === parcelaAtual
+    );
+  }
+
+  let adicionados = 0;
+  itemsMaio.forEach(item => {
+    if (!item.parcela) return;
+    const { atual, total } = item.parcela;
+    if (atual >= total) return; // última parcela, nada a propagar
+
+    for (let i = 1; i <= total - atual; i++) {
+      const novaAtual = atual + i;
+      const chave = chaveOffset(i);
+      if (jaExiste(chave, item.desc, item.valor, novaAtual)) continue;
+
+      getMes(chave).lancamentos.push({
+        id: Date.now() + Math.random() * 1000,
+        tipo: 'gasto',
+        desc: item.desc,
+        valor: item.valor,
+        cat: item.cat,
+        subcat: item.subcat || '',
+        pessoa: item.pessoa,
+        cartao: 'XP',
+        parcela: { atual: novaAtual, total },
+        data: new Date().toISOString()
+      });
+      adicionados++;
+    }
+  });
+
+  state._propagXPMaio = true;
+  salvar();
+  console.log(`propagarParcelasXPMaio: ${adicionados} parcelas inseridas no dashboard.`);
+}
+
 // ─── Migração: atribuir cartão XP automaticamente ────────────────────────
 function migrarCartaoXP() {
   if (state._migCartaoXP) return;
@@ -2489,6 +2542,7 @@ db.ref(DB_REF).on('value', snapshot => {
     // Seeds e migrações rodam na primeira carga com estado limpo
     seedCartaoXPMaio2026();
     patchDatasCartao('XP','2026-05', DATE_XP_0526);
+    propagarParcelasXPMaio();
     migrarCartaoXP();
     migrarTudoRecorrente();
     seedFaturaJulho2026();
