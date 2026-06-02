@@ -1505,8 +1505,10 @@ function corCartao(nome) {
 
 function listarCartoes() {
   const fixos = ['Dinheiro', 'Débito'];
+  const padrao = ['XP', 'Nubank', 'Itaú'];
   const cadastrados = Object.keys(state.cartoes || {});
-  return [...fixos, ...cadastrados.filter(c => !fixos.includes(c))];
+  const todos = [...new Set([...padrao, ...cadastrados])];
+  return [...fixos, ...todos.filter(c => !fixos.includes(c))];
 }
 
 let cartaoSelecionado = 'Dinheiro';
