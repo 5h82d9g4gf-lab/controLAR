@@ -197,6 +197,42 @@
 
   .section-full { margin-bottom: 24px; }
 
+  /* ── Vencimentos ────────────────────────────────────────────── */
+  .venc-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 0; border-bottom: 1px solid #f5f5f5; font-size: 0.88rem;
+  }
+  .venc-item:last-child { border-bottom: none; }
+  .venc-badge {
+    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+  }
+  .venc-info { flex: 1; }
+  .venc-desc { font-weight: 600; color: #222; }
+  .venc-meta { font-size: 0.76rem; color: #999; margin-top: 2px; }
+  .venc-dias {
+    font-size: 0.78rem; font-weight: 700; padding: 3px 8px;
+    border-radius: 12px; white-space: nowrap;
+  }
+  .venc-valor { font-weight: 700; color: #1a1a2e; white-space: nowrap; min-width: 90px; text-align: right; }
+  .venc-pago-btn {
+    border: none; background: none; cursor: pointer; font-size: 1.1rem;
+    padding: 2px 6px; border-radius: 6px; transition: background 0.15s;
+  }
+  .venc-pago-btn:hover { background: #f0fdf4; }
+  .venc-item.pago { opacity: 0.45; }
+  .btn-add-venc {
+    width: 100%; margin-top: 12px; padding: 9px;
+    background: #f8f8f8; border: 1px dashed #ccc; border-radius: 8px;
+    font-size: 0.85rem; color: #888; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-add-venc:hover { background: #f0f4ff; border-color: #3b82f6; color: #3b82f6; }
+  .venc-resumo { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 16px; }
+  .venc-resumo-card {
+    border-radius: 10px; padding: 12px 14px; text-align: center;
+  }
+  .venc-resumo-card label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
+  .venc-resumo-card .v { font-size: 1.3rem; font-weight: 700; }
+
   /* ── Navegação por abas ─────────────────────────────────────── */
   .page-tabs {
     background: #1a1a2e;
@@ -429,6 +465,19 @@
 
   </div>
 
+  <!-- Vencimentos -->
+  <div class="section-full panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h3 style="margin:0;">🗓️ Vencimentos</h3>
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.8rem;color:#888;cursor:pointer;">
+        <input type="checkbox" id="vencMostrarPagos" onchange="renderVencimentos()"> Mostrar pagos
+      </label>
+    </div>
+    <div class="venc-resumo" id="vencResumo"></div>
+    <div id="vencLista"></div>
+    <button class="btn-add-venc" onclick="abrirModalVenc(null)">+ Adicionar conta ou cartão</button>
+  </div>
+
   <!-- Histórico -->
   <div class="section-full panel">
     <h3>📅 Histórico Mensal</h3>
@@ -475,6 +524,51 @@
     <!-- Categorias accordion -->
     <div id="cartaoCategorias"></div>
 
+  </div>
+</div>
+
+<!-- Modal de Vencimento -->
+<div id="modalVenc" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:14px;padding:28px;width:100%;max-width:400px;margin:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+    <h3 style="margin-bottom:16px;font-size:1rem;" id="vencModalTitulo">📌 Nova Conta</h3>
+    <div class="form-grid full" style="margin-bottom:10px;">
+      <input type="text" id="vDesc" placeholder="Nome da conta (ex: Fatura XP, Aluguel)" />
+    </div>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <input type="number" id="vValor" placeholder="Valor estimado (R$)" min="0" step="0.01" />
+      <select id="vPessoa">
+        <option value="Família">Família (ambos)</option>
+        <option value="Carlos">Carlos</option>
+        <option value="Luisa">Luisa</option>
+        <option value="Helena">Helena</option>
+      </select>
+    </div>
+    <div class="form-grid" style="margin-bottom:10px;">
+      <div>
+        <label style="font-size:0.78rem;color:#888;display:block;margin-bottom:4px;">Dia do vencimento (mensal)</label>
+        <input type="number" id="vDia" placeholder="Ex: 15" min="1" max="31" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;background:#fafafa;" />
+      </div>
+      <div>
+        <label style="font-size:0.78rem;color:#888;display:block;margin-bottom:4px;">Ou data específica</label>
+        <input type="date" id="vData" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;background:#fafafa;" />
+      </div>
+    </div>
+    <div class="form-grid full" style="margin-bottom:16px;">
+      <select id="vCat">
+        <option value="Cartão de Crédito">Cartão de Crédito</option>
+        <option value="Moradia">Moradia</option>
+        <option value="Escola / Mensalidade">Escola / Mensalidade</option>
+        <option value="Saúde">Saúde</option>
+        <option value="Serviços">Serviços</option>
+        <option value="Assinaturas">Assinaturas</option>
+        <option value="Funcionários">Funcionários</option>
+        <option value="Outros">Outros</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="fecharModalVenc()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:white;cursor:pointer;font-size:0.9rem;">Cancelar</button>
+      <button onclick="salvarVenc()" style="flex:1;padding:10px;background:#1a1a2e;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;">Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -867,6 +961,9 @@ function renderizar() {
 
   // Por pessoa
   renderGraficoPessoa(lans.filter(l => l.tipo === 'gasto'));
+
+  // Vencimentos
+  renderVencimentos();
 
   // Histórico
   renderHistorico();
@@ -1346,6 +1443,180 @@ function mudarMesCartao(delta) {
   cartaoViewDate.setMonth(cartaoViewDate.getMonth() + delta);
   renderCartoes();
 }
+
+// ─── Vencimentos ─────────────────────────────────────────────────────────
+let vencEditId = null;
+
+function getVencimentos() {
+  if (!state.vencimentos) state.vencimentos = [];
+  return state.vencimentos;
+}
+
+function proximoVencimento(v) {
+  // Retorna a próxima data de vencimento como objeto Date
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  if (v.data) return new Date(v.data + 'T12:00:00');
+  // recorrente: próximo dia de vencimento
+  const dia = v.diaVencimento;
+  let d = new Date(hoje.getFullYear(), hoje.getMonth(), dia);
+  if (d < hoje) d = new Date(hoje.getFullYear(), hoje.getMonth()+1, dia);
+  return d;
+}
+
+function diasAteVencer(v) {
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const prox = proximoVencimento(v);
+  return Math.round((prox - hoje) / 86400000);
+}
+
+function corVenc(dias) {
+  if (dias < 0)  return { bg:'#fef2f2', txt:'#dc2626', badge:'#dc2626', label: `${Math.abs(dias)}d em atraso` };
+  if (dias <= 3) return { bg:'#fff7ed', txt:'#ea580c', badge:'#f97316', label: dias === 0 ? 'Vence hoje!' : `${dias}d` };
+  if (dias <= 7) return { bg:'#fefce8', txt:'#ca8a04', badge:'#eab308', label: `${dias}d` };
+  if (dias <=15) return { bg:'#eff6ff', txt:'#2563eb', badge:'#3b82f6', label: `${dias}d` };
+  return         { bg:'#f0fdf4', txt:'#16a34a', badge:'#22c55e', label: `${dias}d` };
+}
+
+function renderVencimentos() {
+  const venc = getVencimentos();
+  const mostrarPagos = document.getElementById('vencMostrarPagos')?.checked;
+  const lista = document.getElementById('vencLista');
+  const resumo = document.getElementById('vencResumo');
+  if (!lista) return;
+
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const ativos = venc.filter(v => mostrarPagos || !v.pago);
+  const sorted = [...ativos].sort((a,b) => diasAteVencer(a) - diasAteVencer(b));
+
+  // Resumo
+  const emAtraso  = venc.filter(v => !v.pago && diasAteVencer(v) < 0);
+  const estaSemana = venc.filter(v => !v.pago && diasAteVender(v) >= 0 && diasAteVender(v) <= 7);
+  const totalMes   = venc.filter(v => !v.pago && diasAteVender(v) >= 0 && diasAteVender(v) <= 31)
+                         .reduce((s,v) => s + (v.valor||0), 0);
+
+  resumo.innerHTML = `
+    <div class="venc-resumo-card" style="background:#fef2f2;">
+      <label style="color:#dc2626;">Em atraso</label>
+      <div class="v" style="color:#dc2626;">${emAtraso.length}</div>
+    </div>
+    <div class="venc-resumo-card" style="background:#fefce8;">
+      <label style="color:#ca8a04;">Esta semana</label>
+      <div class="v" style="color:#ca8a04;">${estaSemana.length}</div>
+    </div>
+    <div class="venc-resumo-card" style="background:#f0f9ff;">
+      <label style="color:#0284c7;">A pagar (30d)</label>
+      <div class="v" style="color:#0284c7;">${fmt(totalMes)}</div>
+    </div>`;
+
+  if (!sorted.length) {
+    lista.innerHTML = '<div class="empty-msg">Nenhum vencimento cadastrado.</div>';
+    return;
+  }
+
+  lista.innerHTML = sorted.map(v => {
+    const dias = diasAteVencer(v);
+    const cor  = corVenc(dias);
+    const prox = proximoVencimento(v);
+    const dataStr = prox.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'});
+    const recStr  = v.diaVencimento ? `Todo dia ${v.diaVencimento}` : 'Data fixa';
+    return `
+      <div class="venc-item${v.pago?' pago':''}">
+        <div class="venc-badge" style="background:${cor.badge};"></div>
+        <div class="venc-info">
+          <div class="venc-desc">${esc(v.desc)}</div>
+          <div class="venc-meta">${v.cat} · ${v.pessoa} · ${recStr} · ${dataStr}</div>
+        </div>
+        <span class="venc-dias" style="background:${cor.bg};color:${cor.txt};">${cor.label}</span>
+        <div class="venc-valor">${v.valor ? fmt(v.valor) : '—'}</div>
+        <button class="venc-pago-btn" onclick="togglePagoVenc(${v.id})" title="${v.pago?'Marcar como pendente':'Marcar como pago'}">${v.pago?'↩️':'✅'}</button>
+        <button class="btn-del" onclick="abrirModalVenc(${v.id})" title="Editar">✏️</button>
+        <button class="btn-del" onclick="removerVenc(${v.id})" title="Remover">×</button>
+      </div>`;
+  }).join('');
+}
+
+// corrigindo typo na função de filtro
+function diasAteVender(v) { return diasAteVencer(v); }
+
+function abrirModalVenc(id) {
+  vencEditId = id;
+  const modal = document.getElementById('modalVenc');
+  if (id) {
+    const v = getVencimentos().find(x => x.id === id);
+    if (!v) return;
+    document.getElementById('vencModalTitulo').textContent = '✏️ Editar Conta';
+    document.getElementById('vDesc').value   = v.desc;
+    document.getElementById('vValor').value  = v.valor || '';
+    document.getElementById('vPessoa').value = v.pessoa;
+    document.getElementById('vDia').value    = v.diaVencimento || '';
+    document.getElementById('vData').value   = v.data || '';
+    document.getElementById('vCat').value    = v.cat;
+  } else {
+    document.getElementById('vencModalTitulo').textContent = '📌 Nova Conta';
+    document.getElementById('vDesc').value = document.getElementById('vValor').value =
+    document.getElementById('vDia').value  = document.getElementById('vData').value = '';
+    document.getElementById('vPessoa').value = 'Família';
+    document.getElementById('vCat').value = 'Cartão de Crédito';
+  }
+  modal.style.display = 'flex';
+}
+
+function fecharModalVenc() {
+  document.getElementById('modalVenc').style.display = 'none';
+  vencEditId = null;
+}
+
+function salvarVenc() {
+  const desc   = document.getElementById('vDesc').value.trim();
+  const valor  = parseFloat(document.getElementById('vValor').value) || 0;
+  const pessoa = document.getElementById('vPessoa').value;
+  const dia    = parseInt(document.getElementById('vDia').value) || null;
+  const data   = document.getElementById('vData').value || null;
+  const cat    = document.getElementById('vCat').value;
+  if (!desc) { alert('Informe o nome da conta.'); return; }
+  if (!dia && !data) { alert('Informe o dia de vencimento ou uma data específica.'); return; }
+
+  const venc = getVencimentos();
+  if (vencEditId) {
+    const v = venc.find(x => x.id === vencEditId);
+    if (v) Object.assign(v, { desc, valor, pessoa, diaVencimento: dia, data, cat });
+  } else {
+    venc.push({ id: Date.now(), desc, valor, pessoa, diaVencimento: dia, data, cat, pago: false });
+  }
+  salvar();
+  fecharModalVenc();
+  renderVencimentos();
+}
+
+function togglePagoVenc(id) {
+  const v = getVencimentos().find(x => x.id === id);
+  if (!v) return;
+  v.pago = !v.pago;
+  // Se marcou como pago e é recorrente (diaVencimento), resetar para próximo mês
+  if (v.pago && v.diaVencimento) {
+    setTimeout(() => {
+      if (confirm(`"${v.desc}" marcado como pago. Resetar para o próximo mês?`)) {
+        v.pago = false;
+        salvar();
+        renderVencimentos();
+      }
+    }, 300);
+  } else {
+    salvar();
+    renderVencimentos();
+  }
+}
+
+function removerVenc(id) {
+  if (!confirm('Remover este vencimento?')) return;
+  state.vencimentos = getVencimentos().filter(x => x.id !== id);
+  salvar();
+  renderVencimentos();
+}
+
+document.getElementById('modalVenc').addEventListener('click', function(e) {
+  if (e.target === this) fecharModalVenc();
+});
 
 // ─── Lookup de datas — fatura XP maio/2026 ───────────────────────────────
 // Chave: desc + '|' + valor   →  data ISO
