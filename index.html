@@ -1335,11 +1335,12 @@ function renderGraficoSubcat(cat, gastos) {
     ctx.fillText('Selecione uma categoria', ctx.canvas.width / 2, ctx.canvas.height / 2);
     return;
   }
-  // Inclui TODOS os itens da categoria — sem subcat vira "Geral"
+  // Inclui TODOS os itens da categoria
+  // Com subcat → agrupa pela subcat | Sem subcat → mostra pelo nome do gasto
   const filtrados = gastos.filter(l => l.cat === cat);
   const ag = {};
   filtrados.forEach(l => {
-    const key = l.subcat || 'Geral';
+    const key = l.subcat || l.desc;
     ag[key] = (ag[key] || 0) + l.valor;
   });
   const labels = Object.keys(ag).sort((a,b) => ag[b] - ag[a]);
