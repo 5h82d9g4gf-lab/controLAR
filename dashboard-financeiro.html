@@ -1303,7 +1303,8 @@ function renderGraficoCat(gastos) {
 function atualizarFiltroSubcat(gastos) {
   const sel = document.getElementById('subcatFiltro');
   const atual = sel.value;
-  const cats = [...new Set(gastos.filter(l => l.subcat).map(l => l.cat))];
+  // Mostra TODAS as categorias (não só as que têm subcat)
+  const cats = [...new Set(gastos.map(l => l.cat).filter(Boolean))].sort();
   sel.innerHTML = '<option value="">— selecione —</option>' + cats.map(c => `<option${c === atual ? ' selected' : ''}>${c}</option>`).join('');
 }
 
@@ -1317,10 +1318,14 @@ function renderGraficoSubcat(cat, gastos) {
     ctx.fillText('Selecione uma categoria', ctx.canvas.width / 2, ctx.canvas.height / 2);
     return;
   }
-  const filtrados = gastos.filter(l => l.cat === cat && l.subcat);
+  // Inclui TODOS os itens da categoria — sem subcat vira "Geral"
+  const filtrados = gastos.filter(l => l.cat === cat);
   const ag = {};
-  filtrados.forEach(l => { ag[l.subcat] = (ag[l.subcat] || 0) + l.valor; });
-  const labels = Object.keys(ag);
+  filtrados.forEach(l => {
+    const key = l.subcat || 'Geral';
+    ag[key] = (ag[key] || 0) + l.valor;
+  });
+  const labels = Object.keys(ag).sort((a,b) => ag[b] - ag[a]);
   chartSubcat = desenharDoughnut('chartSubcat', chartSubcat, labels, labels.map(k => ag[k]));
 }
 
@@ -1361,33 +1366,51 @@ function selecionarPessoa(p) {
 
 function desenharGraficoPessoa(pessoa, gastos) {
   const filtrados = gastos.filter(l => l.pessoa === pessoa);
+  // Agrupa por categoria principal (sem subcat no label do gráfico)
   const ag = {};
-  filtrados.forEach(l => {
-    const label = l.subcat ? `${l.cat} · ${l.subcat}` : l.cat;
-    ag[label] = (ag[label] || 0) + l.valor;
-  });
+  filtrados.forEach(l => { ag[l.cat] = (ag[l.cat] || 0) + l.valor; });
   const labels = Object.keys(ag).sort((a,b) => ag[b]-ag[a]);
   const data   = labels.map(k => ag[k]);
   const total  = data.reduce((s,v) => s+v, 0);
 
   chartPessoa = desenharDoughnut('chartPessoa', chartPessoa, labels, data);
 
-  // Resumo lateral
+  // Resumo lateral com subcategorias expandidas
   const resumo = document.getElementById('pessoaResumo');
   if (!labels.length) { resumo.innerHTML = '<div class="empty-msg">Sem gastos.</div>'; return; }
+
+  // Montar mapa de subcategorias por categoria
+  const subcatMap = {};
+  filtrados.forEach(l => {
+    if (!subcatMap[l.cat]) subcatMap[l.cat] = {};
+    const sk = l.subcat || 'Geral';
+    subcatMap[l.cat][sk] = (subcatMap[l.cat][sk] || 0) + l.valor;
+  });
+
   resumo.innerHTML = `
     <div style="font-size:0.8rem;color:#888;font-weight:500;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Detalhamento</div>
-    ${labels.map((l,i) => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f5f5f5;font-size:0.83rem;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="width:10px;height:10px;border-radius:50%;background:${CORES[i % CORES.length]};flex-shrink:0;"></div>
-          <span>${l}</span>
-        </div>
-        <div style="text-align:right;">
-          <span style="font-weight:600;color:#dc2626;">${fmt(data[i])}</span>
-          <span style="color:#aaa;font-size:0.75rem;margin-left:6px;">${((data[i]/total)*100).toFixed(0)}%</span>
-        </div>
-      </div>`).join('')}
+    ${labels.map((cat, i) => {
+      const subcats = subcatMap[cat] || {};
+      const temSubcat = Object.keys(subcats).some(k => k !== 'Geral') || Object.keys(subcats).length > 1;
+      const subcatHtml = temSubcat ? Object.entries(subcats).sort((a,b)=>b[1]-a[1]).map(([sk, sv]) =>
+        `<div style="display:flex;justify-content:space-between;padding:2px 0 2px 18px;font-size:0.76rem;color:#999;">
+          <span>↳ ${sk}</span><span style="color:#bbb;">${fmt(sv)}</span>
+        </div>`).join('') : '';
+      return `
+        <div style="padding:6px 0;border-bottom:1px solid #f5f5f5;">
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:0.83rem;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:10px;height:10px;border-radius:50%;background:${CORES[i % CORES.length]};flex-shrink:0;"></div>
+              <span style="font-weight:600;">${cat}</span>
+            </div>
+            <div>
+              <span style="font-weight:700;color:#dc2626;">${fmt(data[i])}</span>
+              <span style="color:#aaa;font-size:0.74rem;margin-left:5px;">${((data[i]/total)*100).toFixed(0)}%</span>
+            </div>
+          </div>
+          ${subcatHtml}
+        </div>`;
+    }).join('')}
     <div style="display:flex;justify-content:space-between;padding:8px 0 0;font-weight:700;font-size:0.88rem;">
       <span>Total</span><span style="color:#dc2626;">${fmt(total)}</span>
     </div>`;
