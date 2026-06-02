@@ -2114,41 +2114,95 @@ function patchDatasCartao(cartao, mesKey, lookup) {
   salvar();
 }
 
+// ─── Dados combinados do cartão (fatura + dashboard) ─────────────────────
+function getItemsCartaoMes(cartao, chave) {
+  // Itens da fatura importada
+  const faturaRaw = state.cartoes?.[cartao]?.[chave] || [];
+  const fatura = faturaRaw.map(i => ({ ...i, _fonte: 'fatura' }));
+
+  // Itens lançados no dashboard com esse cartão
+  const dash = (state.meses?.[chave]?.lancamentos || [])
+    .filter(l => l.tipo === 'gasto' && l.cartao === cartao)
+    .map(l => ({ ...l, _fonte: 'dash' }));
+
+  return [...dash, ...fatura];
+}
+
+function todosCartoesAbas() {
+  // Cartões com fatura importada
+  const comFatura = Object.keys(state.cartoes || {});
+  // Cartões usados nos lançamentos do dashboard
+  const nosDash = new Set();
+  Object.values(state.meses || {}).forEach(mes =>
+    mes.lancamentos.forEach(l => { if (l.cartao && l.cartao !== 'Dinheiro' && l.cartao !== 'Débito') nosDash.add(l.cartao); })
+  );
+  return [...new Set([...comFatura, ...nosDash])];
+}
+
 // ─── Renderização Cartões ─────────────────────────────────────────────────
 function renderCartoes() {
-  // Tabs de cartão
-  const cartoes = Object.keys(state.cartoes || {});
-  const tabsEl = document.getElementById('cardTabs');
-  tabsEl.innerHTML = cartoes.map(c => `
-    <button class="card-tab-btn${c === cartaoAtivo ? ' active' : ''}" onclick="selecionarCartao('${c}')">${c === 'XP' ? '💳 ' : '💳 '}${c}</button>
-  `).join('') + `<button class="card-tab-btn add-card" onclick="adicionarCartao()">+ Novo Cartão</button>`;
-
   const chave = chaveCartaoMs(cartaoViewDate);
+
+  // Tabs — inclui cartões com fatura E cartões usados no dashboard
+  const cartoes = todosCartoesAbas();
+  if (cartoes.length && !cartoes.includes(cartaoAtivo)) cartaoAtivo = cartoes[0];
+
+  document.getElementById('cardTabs').innerHTML =
+    cartoes.map(c => `
+      <button class="card-tab-btn${c === cartaoAtivo ? ' active' : ''}" onclick="selecionarCartao('${c}')">💳 ${c}</button>
+    `).join('') +
+    `<button class="card-tab-btn add-card" onclick="adicionarCartao()">+ Novo Cartão</button>`;
+
   document.getElementById('cartaoMesTitulo').textContent = nomeMes(cartaoViewDate) + ' — ' + cartaoAtivo;
 
-  const items = getCartaoMes(cartaoAtivo, chave);
+  const items = getItemsCartaoMes(cartaoAtivo, chave);
+  const dashItems   = items.filter(i => i._fonte === 'dash');
+  const faturaItems = items.filter(i => i._fonte === 'fatura');
+  const totalDash   = dashItems.reduce((s,i) => s+i.valor, 0);
+  const totalFatura = faturaItems.reduce((s,i) => s+i.valor, 0);
+  const total       = items.reduce((s,i) => s+i.valor, 0);
+  const nCats       = new Set(items.map(i => i.cat)).size;
+  const temFatura   = faturaItems.length > 0;
 
   // Cards de resumo
-  const total       = items.reduce((s,i) => s+i.valor, 0);
-  const totalParc   = items.filter(i => i.parcela).reduce((s,i) => s+i.valor, 0);
-  const totalPont   = items.filter(i => !i.parcela).reduce((s,i) => s+i.valor, 0);
-  const nCats       = new Set(items.map(i => i.cat)).size;
   document.getElementById('cartaoResumoCards').innerHTML = `
-    <div class="card gasto"><label>Total da Fatura</label><div class="valor">${fmt(total)}</div></div>
-    <div class="card" style="border-color:#f97316;"><label>Parcelado</label><div class="valor" style="color:#ea580c;">${fmt(totalParc)}</div></div>
-    <div class="card" style="border-color:#a855f7;"><label>Pontual</label><div class="valor" style="color:#7c3aed;">${fmt(totalPont)}</div></div>
-    <div class="card" style="border-color:#14b8a6;"><label>Categorias</label><div class="valor" style="color:#0d9488;">${nCats}</div></div>
+    <div class="card gasto">
+      <label>Total ${temFatura ? 'Fatura' : 'Acumulado'}</label>
+      <div class="valor">${fmt(temFatura ? totalFatura : totalDash)}</div>
+    </div>
+    <div class="card" style="border-color:#3b82f6;">
+      <label>📱 Lançado</label>
+      <div class="valor" style="color:#2563eb;">${fmt(totalDash)}</div>
+    </div>
+    ${temFatura ? `
+    <div class="card" style="border-color:#22c55e;">
+      <label>🧾 Fatura</label>
+      <div class="valor" style="color:#16a34a;">${fmt(totalFatura)}</div>
+    </div>
+    <div class="card" style="border-color:${Math.abs(totalFatura-totalDash)<1?'#22c55e':'#f97316'};">
+      <label>Diferença</label>
+      <div class="valor" style="color:${Math.abs(totalFatura-totalDash)<1?'#16a34a':'#ea580c'};">${fmt(Math.abs(totalFatura-totalDash))}</div>
+    </div>` : `
+    <div class="card" style="border-color:#a855f7;">
+      <label>Categorias</label>
+      <div class="valor" style="color:#7c3aed;">${nCats}</div>
+    </div>
+    <div class="card" style="border-color:#14b8a6;">
+      <label>Lançamentos</label>
+      <div class="valor" style="color:#0d9488;">${dashItems.length}</div>
+    </div>`}
   `;
 
-  // Gráficos
+  // Gráficos usam todos os itens
   renderCartaoCharts(items);
 
-  // Agrupar por categoria e ordenar decrescente
   if (!items.length) {
-    document.getElementById('cartaoCategorias').innerHTML = '<div class="panel" style="text-align:center;color:#aaa;padding:32px;">Nenhum lançamento neste mês.</div>';
+    document.getElementById('cartaoCategorias').innerHTML =
+      '<div class="panel" style="text-align:center;color:#aaa;padding:32px;">Nenhum lançamento neste mês para este cartão.</div>';
     return;
   }
 
+  // Agrupar por categoria, ordenar decrescente
   const grupos = {};
   items.forEach(i => {
     const k = i.cat + (i.subcat ? ' · ' + i.subcat : '');
@@ -2156,21 +2210,25 @@ function renderCartoes() {
     grupos[k].total += i.valor;
     grupos[k].items.push(i);
   });
-  // Sort groups desc
   const sorted = Object.entries(grupos).sort((a,b) => b[1].total - a[1].total);
 
   document.getElementById('cartaoCategorias').innerHTML = sorted.map(([cat, g], gi) => {
-    const itemsHtml = [...g.items].sort((a,b) => b.valor-a.valor).map(i => `
-      <div class="cat-item-row">
-        <div class="cat-item-desc">${esc(i.desc)}</div>
-        <div class="cat-item-meta">${i.pessoa}${i.parcela ? ` · ${i.parcela.atual}/${i.parcela.total}` : ''}</div>
-        <div class="cat-item-valor">${fmt(i.valor)}</div>
-      </div>`).join('');
+    const itemsHtml = [...g.items].sort((a,b) => b.valor-a.valor).map(i => {
+      const fonteBadge = i._fonte === 'dash'
+        ? '<span style="font-size:0.65rem;background:#dbeafe;color:#1d4ed8;border-radius:8px;padding:1px 5px;margin-left:4px;">📱</span>'
+        : '<span style="font-size:0.65rem;background:#dcfce7;color:#15803d;border-radius:8px;padding:1px 5px;margin-left:4px;">🧾</span>';
+      return `
+        <div class="cat-item-row">
+          <div class="cat-item-desc">${esc(i.desc)} ${fonteBadge}</div>
+          <div class="cat-item-meta">${i.pessoa}${i.parcela ? ` · ${i.parcela.atual}/${i.parcela.total}` : ''}</div>
+          <div class="cat-item-valor">${fmt(i.valor)}</div>
+        </div>`;
+    }).join('');
     return `
       <div class="cat-bloco" id="catBloco${gi}">
         <div class="cat-bloco-header" onclick="toggleCat('catBloco${gi}')">
           <h4>${cat}</h4>
-          <div style="display:flex;align-items:center;">
+          <div style="display:flex;align-items:center;gap:8px;">
             <span class="cat-bloco-total">${fmt(g.total)}</span>
             <span class="cat-bloco-arrow">▼</span>
           </div>
