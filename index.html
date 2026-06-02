@@ -240,38 +240,90 @@
 
   /* ── Mobile responsivo ──────────────────────────────────────── */
   @media (max-width: 640px) {
-    header { padding: 14px 16px; }
-    header h1 { font-size: 1.1rem; }
-    .page-tabs { padding: 0 16px; }
-    .page-tab { padding: 10px 14px; font-size: 0.82rem; }
-    .month-nav { padding: 10px 16px; }
-    .month-nav h2 { font-size: 0.95rem; min-width: 120px; }
-    .month-nav button { padding: 5px 10px; font-size: 0.82rem; }
-    main, #pageCartoesInner { padding: 12px 16px; }
-    .cards { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-    .card { padding: 14px; }
-    .card .valor { font-size: 1.3rem; }
-    .two-col { grid-template-columns: 1fr; gap: 14px; }
-    .panel { padding: 14px; }
-    .panel h3 { font-size: 0.88rem; }
-    .form-grid { grid-template-columns: 1fr; }
-    .tipo-toggle { gap: 6px; }
-    .tipo-btn { font-size: 0.82rem; padding: 7px; }
-    input, select { font-size: 16px !important; } /* evita zoom no iOS */
-    .lancamento-item { gap: 6px; }
-    .lancamento-desc { font-size: 0.85rem; }
-    .lancamento-valor { font-size: 0.88rem; }
-    /* Gráficos no cartão: empilhar */
-    #cartaoGraficosRow1 { grid-template-columns: 1fr !important; }
-    /* Pessoa tabs */
-    #pessoaTabs { gap: 6px; }
+    /* Header compacto */
+    header { padding: 10px 16px; }
+    header h1 { font-size: 1rem; }
+    #headerNomes { display: none; }
+
+    /* Abas maiores e legíveis */
+    .page-tabs { padding: 0; }
+    .page-tab { flex: 1; text-align: center; padding: 11px 8px; font-size: 0.82rem; }
+
+    /* Navegação de mês */
+    .month-nav { padding: 10px 16px; gap: 10px; }
+    .month-nav h2 { font-size: 0.92rem; min-width: 0; flex: 1; text-align: center; }
+    .month-nav button { padding: 7px 14px; font-size: 0.85rem; border-radius: 8px; }
+
+    /* Conteúdo principal */
+    main, #pageCartoesInner { padding: 12px 14px 90px; }
+
+    /* Cards de resumo: 2 colunas compactas */
+    .cards { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+    .card { padding: 12px; border-left-width: 3px; }
+    .card label { font-size: 0.7rem; }
+    .card .valor { font-size: 1.2rem; }
+
+    /* Painéis */
+    .two-col { grid-template-columns: 1fr; gap: 12px; }
+    .panel { padding: 14px 12px; border-radius: 10px; }
+    .panel h3 { font-size: 0.88rem; margin-bottom: 12px; }
+
+    /* ESCONDER formulário desktop no mobile — FAB resolve */
+    .two-col > .panel:first-child { display: none; }
+
+    /* Gráficos: esconder no mobile, deixar só lista */
+    #cartaoGraficosRow1 { display: none !important; }
+    #pageCartoes > div > .panel:nth-child(3) { display: none; } /* dia da semana */
+    /* Gráfico de subcategorias no dashboard também ocultar */
+    .two-col .panel .chart-wrap { height: 200px; }
+
+    /* Seção Gastos por Pessoa: ocultar gráfico, mostrar só resumo */
+    #chartPessoa { display: none; }
+    #pessoaResumo { padding-top: 0 !important; }
+    #pessoaTabs { gap: 6px; flex-wrap: wrap; }
+    #pessoaTabs button { font-size: 0.78rem; padding: 6px 12px; }
+
+    /* Lista de lançamentos */
+    .lancamentos-lista { max-height: 400px; }
+    .lancamento-item { padding: 10px 0; gap: 6px; flex-wrap: nowrap; }
+    .lancamento-desc { font-size: 0.84rem; font-weight: 600; }
+    .lancamento-meta { font-size: 0.72rem; }
+    .lancamento-valor { font-size: 0.88rem; min-width: 70px; }
+    .btn-del { padding: 2px 5px; font-size: 0.85rem; }
+
     /* Vencimentos */
-    .venc-resumo { grid-template-columns: 1fr 1fr; }
-    /* Esconder colunas pesadas no mobile */
+    .venc-resumo { grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+    .venc-resumo-card { padding: 9px 8px; }
+    .venc-resumo-card label { font-size: 0.65rem; }
+    .venc-resumo-card .v { font-size: 1.1rem; }
+    .venc-item { gap: 8px; padding: 10px 0; }
+    .venc-desc { font-size: 0.85rem; }
+    .venc-meta { font-size: 0.7rem; }
+    .venc-valor { font-size: 0.85rem; min-width: 75px; }
+
+    /* Histórico: tabela rolável horizontalmente */
+    .section-full .historico-table { font-size: 0.78rem; }
+    .historico-table th, .historico-table td { padding: 7px 6px; }
     .historico-table th:nth-child(5),
     .historico-table td:nth-child(5) { display: none; }
-    /* Espaço para o FAB */
-    main, #pageCartoesInner { padding-bottom: 80px; }
+    .section-full > div { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Inputs: evitar zoom no iOS */
+    input, select, textarea { font-size: 16px !important; }
+    .tipo-toggle { gap: 5px; }
+    .tipo-btn { font-size: 0.8rem; padding: 8px 6px; }
+
+    /* Cartões page: accordion touch-friendly */
+    .cat-bloco-header { padding: 14px 16px; }
+    .cat-bloco-header h4 { font-size: 0.88rem; }
+    .cat-item-row { padding: 10px 16px; font-size: 0.82rem; }
+
+    /* Card tabs */
+    .card-tab-btn { padding: 7px 14px; font-size: 0.82rem; }
+    .cartao-resumo { grid-template-columns: 1fr 1fr; gap: 8px; }
+
+    /* Charts do dashboard: só 1 coluna e menor */
+    #pessoaTabs ~ div, .two-col:has(canvas) { grid-template-columns: 1fr; }
   }
 
   /* ── FAB — botão flutuante de lançamento rápido ─────────────── */
@@ -621,17 +673,25 @@
       <div class="tipo-btn"               id="fabBtnGasto"   onclick="setTipoFAB('gasto')">↓ Gasto</div>
     </div>
 
-    <input type="text"   id="fabDesc"  placeholder="Descrição" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px;margin-bottom:10px;box-sizing:border-box;">
-    <input type="number" id="fabValor" placeholder="Valor (R$)" inputmode="decimal" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px;margin-bottom:10px;box-sizing:border-box;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <input type="text"   id="fabDesc"  placeholder="Descrição" style="padding:13px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+      <input type="number" id="fabValor" placeholder="R$ Valor" inputmode="decimal" style="padding:13px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+    </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-      <select id="fabCat" style="padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#fafafa;"></select>
-      <select id="fabPessoa" style="padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#fafafa;">
+      <select id="fabCat" style="padding:13px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#fafafa;"></select>
+      <select id="fabPessoa" style="padding:13px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#fafafa;">
         <option value="Família">Família</option>
         <option value="Carlos">Carlos</option>
         <option value="Luisa">Luisa</option>
         <option value="Helena">Helena</option>
       </select>
+    </div>
+
+    <!-- Modo: Normal / Recorrente -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;" id="fabModoWrap">
+      <div class="tipo-btn active-receita" id="fabModoNormal"     onclick="setModoFAB('normal')"     style="font-size:0.8rem;text-align:center;">📌 Pontual</div>
+      <div class="tipo-btn"               id="fabModoRecorrente" onclick="setModoFAB('recorrente')" style="font-size:0.8rem;text-align:center;">🔁 Recorrente</div>
     </div>
 
     <!-- Cartão (só gastos) -->
@@ -640,8 +700,8 @@
       <div class="cartao-btns" id="fabCartaoBtns"></div>
     </div>
 
-    <button onclick="salvarFAB()" style="width:100%;padding:14px;background:#1a1a2e;color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;">Adicionar</button>
-    <button onclick="fecharFAB()" style="width:100%;padding:10px;background:none;border:none;color:#aaa;font-size:0.9rem;cursor:pointer;margin-top:8px;">Cancelar</button>
+    <button onclick="salvarFAB()" style="width:100%;padding:15px;background:#1a1a2e;color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;letter-spacing:0.02em;">✓ Adicionar</button>
+    <button onclick="fecharFAB()" style="width:100%;padding:10px;background:none;border:none;color:#bbb;font-size:0.88rem;cursor:pointer;margin-top:6px;">Cancelar</button>
   </div>
 </div>
 
@@ -1587,6 +1647,7 @@ function mudarMesCartao(delta) {
 // ─── FAB — lançamento rápido mobile ──────────────────────────────────────
 let tipoFAB = 'gasto';
 let cartaoFAB = 'Dinheiro';
+let modoFAB = 'normal';
 
 const CATS_RECEITA_FAB = ['Salário','Freelance / Extra','Outros'];
 const CATS_GASTO_FAB   = ['Alimentação','Moradia','Carro','Transporte','Saúde','Esportes / Lazer',
@@ -1594,13 +1655,19 @@ const CATS_GASTO_FAB   = ['Alimentação','Moradia','Carro','Transporte','Saúde
                            'Contabilidade','Custos Empresa Luisa','Funcionários','Outros'];
 
 function abrirFAB() {
-  tipoFAB = 'gasto';
-  cartaoFAB = 'Dinheiro';
+  tipoFAB = 'gasto'; cartaoFAB = 'Dinheiro'; modoFAB = 'normal';
   document.getElementById('fabDesc').value = '';
   document.getElementById('fabValor').value = '';
   atualizarFABTipo();
+  setModoFAB('normal');
   document.getElementById('modalFAB').style.display = 'flex';
   setTimeout(() => document.getElementById('fabDesc').focus(), 200);
+}
+
+function setModoFAB(m) {
+  modoFAB = m;
+  document.getElementById('fabModoNormal').className     = 'tipo-btn' + (m==='normal'     ? ' active-receita' : '');
+  document.getElementById('fabModoRecorrente').className = 'tipo-btn' + (m==='recorrente' ? ' active-receita' : '');
 }
 
 function fecharFAB() {
@@ -1634,8 +1701,10 @@ function salvarFAB() {
   const pessoa= document.getElementById('fabPessoa').value;
   const cartao= tipoFAB === 'gasto' ? cartaoFAB : null;
   if (!desc || isNaN(valor) || valor <= 0) { alert('Preencha descrição e valor.'); return; }
+  const rid = modoFAB === 'recorrente' ? 'rec_' + Date.now() : null;
   getMes(chaveMs(viewDate)).lancamentos.push({
     id: Date.now(), tipo: tipoFAB, desc, valor, cat, subcat: '', pessoa, cartao,
+    recorrente: modoFAB === 'recorrente', recorrenteId: rid,
     data: new Date().toISOString()
   });
   salvar();
