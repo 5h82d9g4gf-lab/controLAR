@@ -798,7 +798,7 @@
         <input type="date" id="vData" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;background:#fafafa;" />
       </div>
     </div>
-    <div class="form-grid full" style="margin-bottom:16px;">
+    <div class="form-grid" style="margin-bottom:16px;">
       <select id="vCat">
         <option value="Cartão de Crédito">Cartão de Crédito</option>
         <option value="Moradia">Moradia</option>
@@ -809,6 +809,10 @@
         <option value="Funcionários">Funcionários</option>
         <option value="Outros">Outros</option>
       </select>
+      <div>
+        <label style="font-size:0.78rem;color:#888;display:block;margin-bottom:4px;">Inicia em (mês/ano)</label>
+        <input type="month" id="vIniciaEm" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;background:#fafafa;" />
+      </div>
     </div>
     <div style="display:flex;gap:10px;">
       <button onclick="fecharModalVenc()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:white;cursor:pointer;font-size:0.9rem;">Cancelar</button>
@@ -1803,6 +1807,16 @@ function correcoesFuncionariosJunhoJulho() {
 }
 
 // ─── Seed vencimentos fixos ───────────────────────────────────────────────
+function migrarIniciaEmVencimentos() {
+  if (state._migIniciaEm) return;
+  (state.vencimentos || []).forEach(v => {
+    if (/aluguel/i.test(v.desc))   v.iniciaEm = '2026-07';
+    if (/condomín/i.test(v.desc))  v.iniciaEm = '2026-07';
+  });
+  state._migIniciaEm = true;
+  salvar();
+}
+
 function seedVencimentos() {
   if (state._seedVencimentos) return;
   if (!state.vencimentos) state.vencimentos = [];
@@ -2318,8 +2332,19 @@ function valorVencimento(v) {
   return v.valor || 0;
 }
 
+function mesAtualKey() {
+  const h = new Date();
+  return h.getFullYear() + '-' + String(h.getMonth()+1).padStart(2,'0');
+}
+
+function vencimentoAtivoNoMes(v) {
+  if (v.iniciaEm && mesAtualKey() < v.iniciaEm) return false;
+  if (v.terminaEm && mesAtualKey() > v.terminaEm) return false;
+  return true;
+}
+
 function renderVencimentos() {
-  const venc = getVencimentos();
+  const venc = getVencimentos().filter(vencimentoAtivoNoMes);
   const mostrarPagos = document.getElementById('vencMostrarPagos')?.checked;
   const lista = document.getElementById('vencLista');
   const resumo = document.getElementById('vencResumo');
@@ -2386,16 +2411,16 @@ function abrirModalVenc(id) {
     const v = getVencimentos().find(x => x.id === id);
     if (!v) return;
     document.getElementById('vencModalTitulo').textContent = '✏️ Editar Conta';
-    document.getElementById('vDesc').value   = v.desc;
-    document.getElementById('vValor').value  = v.valor || '';
-    document.getElementById('vPessoa').value = v.pessoa;
-    document.getElementById('vDia').value    = v.diaVencimento || '';
-    document.getElementById('vData').value   = v.data || '';
-    document.getElementById('vCat').value    = v.cat;
+    document.getElementById('vDesc').value      = v.desc;
+    document.getElementById('vValor').value     = v.valor || '';
+    document.getElementById('vPessoa').value    = v.pessoa;
+    document.getElementById('vDia').value       = v.diaVencimento || '';
+    document.getElementById('vData').value      = v.data || '';
+    document.getElementById('vCat').value       = v.cat;
+    document.getElementById('vIniciaEm').value  = v.iniciaEm || '';
   } else {
     document.getElementById('vencModalTitulo').textContent = '📌 Nova Conta';
-    document.getElementById('vDesc').value = document.getElementById('vValor').value =
-    document.getElementById('vDia').value  = document.getElementById('vData').value = '';
+    ['vDesc','vValor','vDia','vData','vIniciaEm'].forEach(id => document.getElementById(id).value = '');
     document.getElementById('vPessoa').value = 'Família';
     document.getElementById('vCat').value = 'Cartão de Crédito';
   }
@@ -2417,12 +2442,13 @@ function salvarVenc() {
   if (!desc) { alert('Informe o nome da conta.'); return; }
   if (!dia && !data) { alert('Informe o dia de vencimento ou uma data específica.'); return; }
 
+  const iniciaEm = document.getElementById('vIniciaEm').value || null;
   const venc = getVencimentos();
   if (vencEditId) {
     const v = venc.find(x => x.id === vencEditId);
-    if (v) Object.assign(v, { desc, valor, pessoa, diaVencimento: dia, data, cat });
+    if (v) Object.assign(v, { desc, valor, pessoa, diaVencimento: dia, data, cat, iniciaEm });
   } else {
-    venc.push({ id: Date.now(), desc, valor, pessoa, diaVencimento: dia, data, cat, pago: false });
+    venc.push({ id: Date.now(), desc, valor, pessoa, diaVencimento: dia, data, cat, iniciaEm, pago: false });
   }
   salvar();
   fecharModalVenc();
@@ -2987,6 +3013,7 @@ db.ref(DB_REF).on('value', snapshot => {
     adicionarXPMaioDashboard();
     correcoesFuncionariosJunhoJulho();
     seedVencimentos();
+    migrarIniciaEmVencimentos();
     preencherValoresVencimentos();
     propagarParcelasXPMaio();
     migrarCartaoXP();
