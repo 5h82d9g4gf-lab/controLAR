@@ -1623,6 +1623,60 @@ function seedVencimentos() {
   salvar();
 }
 
+function preencherValoresVencimentos() {
+  if (!state.vencimentos?.length) return;
+
+  // Junta todos os lançamentos de todos os meses em ordem decrescente (mais recente primeiro)
+  const todos = Object.entries(state.meses)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .flatMap(([, mes]) => mes.lancamentos);
+
+  // Valor mais recente que bate com um filtro
+  function valorRecente(filtro) {
+    const match = todos.find(l => l.tipo === 'gasto' && filtro(l));
+    return match ? match.valor : 0;
+  }
+
+  // Média mensal de um cartão (total XP ou Nubank por mês)
+  function mediaCartao(cartao) {
+    const totaisPorMes = Object.values(state.meses).map(mes =>
+      mes.lancamentos.filter(l => l.cartao === cartao && l.tipo === 'gasto')
+                     .reduce((s, l) => s + l.valor, 0)
+    ).filter(t => t > 0);
+    if (!totaisPorMes.length) return 0;
+    return Math.round(totaisPorMes.reduce((s, v) => s + v, 0) / totaisPorMes.length);
+  }
+
+  const regras = [
+    { desc: 'Escola',       fn: l => /escola|colégio|colegio/i.test(l.desc) },
+    { desc: 'Ballet',       fn: l => /ballet/i.test(l.desc) },
+    { desc: 'Leyde',        fn: l => /leyde/i.test(l.desc) && l.cat === 'Funcionários' },
+    { desc: 'Ana',          fn: l => /\bana\b/i.test(l.desc) && l.cat === 'Funcionários' },
+    { desc: 'Condomínio',   fn: l => /condom/i.test(l.subcat || '') || /condom/i.test(l.desc) },
+    { desc: 'Luz',          fn: l => /\bluz\b|energia|cemig|copel|celg/i.test(l.desc) },
+    { desc: 'Filadélfia',   fn: l => /filad/i.test(l.desc) },
+    { desc: 'Aluguel',      fn: l => /aluguel/i.test(l.subcat || '') || /aluguel/i.test(l.desc) },
+  ];
+
+  state.vencimentos.forEach(v => {
+    // Cartões: média mensal
+    if (/cartão xp|cartao xp/i.test(v.desc)) {
+      const m = mediaCartao('XP'); if (m > 0) v.valor = m; return;
+    }
+    if (/cartão nubank|cartao nubank/i.test(v.desc)) {
+      const m = mediaCartao('Nubank'); if (m > 0) v.valor = m; return;
+    }
+    // Demais: valor mais recente encontrado
+    const regra = regras.find(r => r.desc.toLowerCase() === v.desc.toLowerCase());
+    if (regra) {
+      const val = valorRecente(regra.fn);
+      if (val > 0) v.valor = val;
+    }
+  });
+
+  salvar();
+}
+
 // ─── Limpeza de duplicatas ────────────────────────────────────────────────
 function limparDuplicatas() {
   let totalRemovidos = 0;
@@ -2637,6 +2691,7 @@ db.ref(DB_REF).on('value', snapshot => {
     seedCartaoXPMaio2026();
     patchDatasCartao('XP','2026-05', DATE_XP_0526);
     seedVencimentos();
+    preencherValoresVencimentos();
     propagarParcelasXPMaio();
     migrarCartaoXP();
     migrarTudoRecorrente();
