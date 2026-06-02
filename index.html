@@ -1604,83 +1604,100 @@ function limparDuplicatas() {
 
   Object.entries(state.meses).forEach(([chave, mes]) => {
     const antes = mes.lancamentos.length;
-    const vistos = new Map();
+    const vistos = [];
     const unicos = [];
 
     mes.lancamentos.forEach(l => {
-      // Chave de duplicata: desc + valor arredondado + tipo + parcela (se existir) + recorrenteId
-      const valorKey = Math.round(l.valor * 100); // centavos
-      const parcelaKey = l.parcela ? `${l.parcela.atual}/${l.parcela.total}` : 'np';
-      const recKey = l.recorrenteId || 'nr';
-      const dupKey = `${l.tipo}|${l.desc}|${valorKey}|${parcelaKey}|${recKey}`;
-
-      if (vistos.has(dupKey)) {
-        // Manter o mais antigo (menor id)
-        const existente = vistos.get(dupKey);
-        if (l.id < existente.id) {
-          // Este é mais antigo — trocar
-          unicos.splice(unicos.indexOf(existente), 1);
-          unicos.push(l);
-          vistos.set(dupKey, l);
+      // Para parcelados: duplicata = mesmo valor (±0.10) + mesma parcela atual + mesmo total
+      if (l.parcela) {
+        const isDup = vistos.some(v =>
+          v.parcela &&
+          v.parcela.atual === l.parcela.atual &&
+          v.parcela.total === l.parcela.total &&
+          Math.abs(v.valor - l.valor) < 0.15
+        );
+        if (isDup) {
+          relatorio.push(`  ${chave}: dup parcelado "${l.desc}" ${l.parcela.atual}/${l.parcela.total} R$${l.valor}`);
+          totalRemovidos++;
+          return;
         }
-        // senão descarta o atual (é o duplicado)
       } else {
-        vistos.set(dupKey, l);
-        unicos.push(l);
+        // Para não-parcelados: duplicata = mesmo desc + valor + tipo + recorrenteId
+        const valorKey = Math.round(l.valor * 100);
+        const recKey   = l.recorrenteId || 'nr';
+        const dupKey   = `${l.tipo}|${l.desc}|${valorKey}|${recKey}`;
+        const isDup    = vistos.some(v => {
+          const vk = Math.round(v.valor * 100);
+          const rk = v.recorrenteId || 'nr';
+          return `${v.tipo}|${v.desc}|${vk}|${rk}` === dupKey;
+        });
+        if (isDup) {
+          relatorio.push(`  ${chave}: dup "${l.desc}" R$${l.valor}`);
+          totalRemovidos++;
+          return;
+        }
       }
+      vistos.push(l);
+      unicos.push(l);
     });
 
-    const removidos = antes - unicos.length;
-    if (removidos > 0) {
-      mes.lancamentos = unicos;
-      totalRemovidos += removidos;
-      relatorio.push(`${chave}: ${removidos} duplicata(s) removida(s)`);
-    }
+    mes.lancamentos = unicos;
   });
 
   if (totalRemovidos > 0) {
     salvar();
-    console.log(`limparDuplicatas: ${totalRemovidos} removidos`, relatorio);
+    console.warn(`limparDuplicatas: ${totalRemovidos} removidos:\n` + relatorio.join('\n'));
   } else {
-    console.log('limparDuplicatas: nenhuma duplicata encontrada ✅');
+    console.log('limparDuplicatas: nenhuma duplicata ✅');
   }
   return { total: totalRemovidos, relatorio };
 }
 
 // ─── Propagar parcelas XP maio/2026 no dashboard ─────────────────────────
 function propagarParcelasXPMaio() {
-  if (state._propagXPMaio) return;
+  if (state._propagXPMaio2) return;
+
+  // 1. Limpar QUALQUER item propagado anteriormente
+  //    (IDs grandes = Date.now() range, marcados com _src:'xp')
+  Object.values(state.meses).forEach(mes => {
+    mes.lancamentos = mes.lancamentos.filter(l =>
+      !(l._src === 'xp' || (l.cartao === 'XP' && l.parcela && l.id > 1_000_000_000_000))
+    );
+  });
 
   const itemsMaio = state.cartoes?.['XP']?.['2026-05'] || [];
 
-  // Chave do mês com offset em relação a maio/2026
   function chaveOffset(offset) {
-    const d = new Date(2026, 4 + offset, 1); // 4 = maio (JS)
+    const d = new Date(2026, 4 + offset, 1); // maio = índice 4
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
   }
 
-  // Verifica se já existe item equivalente no mês (evita duplicatas)
-  function jaExiste(chave, desc, valor, parcelaAtual) {
+  // Deduplicação por valor + parcela (tolera descrições ligeiramente diferentes)
+  function jaExiste(chave, valor, parcelaAtual, total) {
     return (state.meses?.[chave]?.lancamentos || []).some(l =>
-      l.desc === desc &&
-      Math.abs(l.valor - valor) < 0.10 &&
-      l.parcela?.atual === parcelaAtual
+      l.parcela &&
+      l.parcela.atual === parcelaAtual &&
+      l.parcela.total === total &&
+      Math.abs(l.valor - valor) < 0.15
     );
   }
 
+  let idBase = 3_000_000_000; // range fixo distinto de seeds e Date.now()
   let adicionados = 0;
+
   itemsMaio.forEach(item => {
     if (!item.parcela) return;
     const { atual, total } = item.parcela;
-    if (atual >= total) return; // última parcela, nada a propagar
+    if (atual >= total) return; // última parcela — nada a propagar
 
     for (let i = 1; i <= total - atual; i++) {
       const novaAtual = atual + i;
-      const chave = chaveOffset(i);
-      if (jaExiste(chave, item.desc, item.valor, novaAtual)) continue;
+      const chave    = chaveOffset(i);
+
+      if (jaExiste(chave, item.valor, novaAtual, total)) continue;
 
       getMes(chave).lancamentos.push({
-        id: Date.now() + Math.random() * 1000,
+        id: idBase++,
         tipo: 'gasto',
         desc: item.desc,
         valor: item.valor,
@@ -1689,15 +1706,16 @@ function propagarParcelasXPMaio() {
         pessoa: item.pessoa,
         cartao: 'XP',
         parcela: { atual: novaAtual, total },
+        _src: 'xp', // marcador de origem para limpeza futura
         data: new Date().toISOString()
       });
       adicionados++;
     }
   });
 
-  state._propagXPMaio = true;
+  state._propagXPMaio2 = true;
   salvar();
-  console.log(`propagarParcelasXPMaio: ${adicionados} parcelas inseridas no dashboard.`);
+  console.log(`propagarParcelasXPMaio: ${adicionados} parcelas adicionadas`);
 }
 
 // ─── Migração: atribuir cartão XP automaticamente ────────────────────────
