@@ -315,6 +315,24 @@
   .cat-item-desc { flex: 1; color: #333; }
   .cat-item-meta { color: #aaa; font-size: 0.75rem; white-space: nowrap; }
   .cat-item-valor { font-weight: 600; color: #dc2626; white-space: nowrap; }
+
+  /* ── Badges de cartão ──────────────────────────────────────── */
+  .badge-cartao {
+    font-size: 0.68rem; font-weight: 700; padding: 2px 7px;
+    border-radius: 10px; white-space: nowrap; letter-spacing: 0.02em;
+  }
+  .cartao-select-wrap {
+    margin-top: 8px; display: none;
+  }
+  .cartao-btns {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .cartao-btn {
+    padding: 6px 12px; border-radius: 20px; border: 2px solid transparent;
+    cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: all 0.15s;
+    background: #f3f4f6; color: #555;
+  }
+  .cartao-btn.selected { border-color: currentColor; }
 </style>
 </head>
 <body>
@@ -401,6 +419,12 @@
       <div class="form-grid full" id="fSubcatWrap" style="display:none;">
         <select id="fSubcat"></select>
       </div>
+      <!-- Pago com (só gastos) -->
+      <div class="cartao-select-wrap" id="pagoComWrap">
+        <div style="font-size:0.78rem;color:#888;margin-bottom:6px;">💳 Pago com</div>
+        <div class="cartao-btns" id="pagoComBtns"></div>
+      </div>
+
       <!-- Modo de recorrência -->
       <div class="tipo-toggle" style="margin-top:8px;" id="modoWrap">
         <div class="tipo-btn active-receita" id="modoNormal"     onclick="setModo('normal')"     style="font-size:0.8rem;">Normal</div>
@@ -596,6 +620,10 @@
     <div id="eSubcatWrap" style="display:none;margin-bottom:10px;">
       <select id="eSubcat" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:0.9rem;background:#fafafa;"></select>
     </div>
+    <div id="eCartaoWrap" style="margin-bottom:12px;display:none;">
+      <div style="font-size:0.78rem;color:#888;margin-bottom:6px;">💳 Pago com</div>
+      <div class="cartao-btns" id="eCartaoBtns"></div>
+    </div>
     <div style="display:flex;gap:10px;">
       <button onclick="fecharModal()" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;background:white;cursor:pointer;font-size:0.9rem;">Cancelar</button>
       <button onclick="salvarEdicao()" style="flex:1;padding:10px;background:#1a1a2e;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;font-weight:600;">Salvar</button>
@@ -697,6 +725,12 @@ function setTipo(t) {
   const optGasto   = ['Moradia','Alimentação','Carro','Transporte','Saúde','Educação','Esportes / Lazer','Lazer','Vestuário','Assinaturas','Impostos / Tributos','Contabilidade','Custos Empresa Luisa','Funcionários','Poupança / Investimento','Outros'];
   const opts = t === 'receita' ? optReceita : optGasto;
   sel.innerHTML = '<option value="">Categoria</option>' + opts.map(o => `<option>${o}</option>`).join('');
+  // Mostrar seletor de cartão só para gastos
+  const pagoWrap = document.getElementById('pagoComWrap');
+  if (pagoWrap) {
+    pagoWrap.style.display = t === 'gasto' ? 'block' : 'none';
+    if (t === 'gasto') renderBotoesCartao('pagoComBtns', cartaoSelecionado, 'selecionarCartaoForm');
+  }
 }
 
 // ─── Adicionar lançamento ─────────────────────────────────────────────────
@@ -712,6 +746,7 @@ function adicionarLancamento() {
   }
 
   const subcat = document.getElementById('fSubcat').value || '';
+  const cartao = tipoAtual === 'gasto' ? (cartaoSelecionado || 'Dinheiro') : null;
 
   if (modoAtual === 'parcelado') {
     const atual = parseInt(document.getElementById('fParcelaAtual').value) || 1;
@@ -728,7 +763,7 @@ function adicionarLancamento() {
         tipo: tipoAtual,
         desc, valor, cat, subcat, pessoa,
         parcela: { atual: atual + i, total },
-        data: new Date().toISOString()
+        cartao, data: new Date().toISOString()
       });
     }
     document.getElementById('fParcelaAtual').value = '';
@@ -738,7 +773,7 @@ function adicionarLancamento() {
     getMes(chaveMs(viewDate)).lancamentos.push({
       id: Date.now(),
       tipo: tipoAtual,
-      desc, valor, cat, subcat, pessoa,
+      desc, valor, cat, subcat, pessoa, cartao,
       recorrente: modoAtual === 'recorrente',
       recorrenteId: rid,
       data: new Date().toISOString()
@@ -779,6 +814,13 @@ function abrirEdicao(id) {
   atualizarSubcat('eSubcat', lan.cat);
   if (lan.subcat) document.getElementById('eSubcat').value = lan.subcat;
   document.getElementById('ePessoa').value = lan.pessoa;
+  // Cartão
+  const eCartWrap = document.getElementById('eCartaoWrap');
+  if (lan.tipo === 'gasto') {
+    eCartaoSelecionado = lan.cartao || 'Dinheiro';
+    eCartWrap.style.display = 'block';
+    renderBotoesCartao('eCartaoBtns', eCartaoSelecionado, 'selecionarCartaoEdit');
+  } else { eCartWrap.style.display = 'none'; }
   const overlay = document.getElementById('modalOverlay');
   overlay.style.display = 'flex';
 }
@@ -797,8 +839,9 @@ function salvarEdicao() {
   const chave = chaveMs(viewDate);
   const mes   = getMes(chave);
   const lan   = mes.lancamentos.find(l => l.id === editId);
-  const subcat = document.getElementById('eSubcat').value || '';
-  if (lan) { lan.desc = desc; lan.valor = valor; lan.cat = cat; lan.subcat = subcat; lan.pessoa = pessoa; lan.tipo = tipoEdit; }
+  const subcat  = document.getElementById('eSubcat').value || '';
+  const cartao  = tipoEdit === 'gasto' ? eCartaoSelecionado : null;
+  if (lan) { lan.desc = desc; lan.valor = valor; lan.cat = cat; lan.subcat = subcat; lan.pessoa = pessoa; lan.tipo = tipoEdit; lan.cartao = cartao; }
   salvar();
   fecharModal();
   renderizar();
@@ -944,7 +987,10 @@ function renderizar() {
                 : '<span title="Pontual" style="font-size:0.75rem;background:#f3f4f6;color:#6b7280;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">📌</span>'
             }
           </div>
-          <div class="lancamento-meta">${l.cat}${l.subcat ? ' · ' + l.subcat : ''} · ${l.pessoa}</div>
+          <div class="lancamento-meta" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+            ${l.cat}${l.subcat ? ' · ' + l.subcat : ''} · ${l.pessoa}
+            ${l.cartao && l.cartao !== 'Dinheiro' ? badgeCartao(l.cartao) : ''}
+          </div>
         </div>
         <span class="lancamento-valor ${l.tipo}">${l.tipo === 'receita' ? '+' : '-'}${fmt(l.valor)}</span>
         <button class="btn-del" onclick="abrirEdicao(${l.id})" title="Editar" style="color:#bbb;font-size:0.85rem;">✏️</button>
@@ -1442,6 +1488,56 @@ function getCartaoMes(cartao, chave) {
 function mudarMesCartao(delta) {
   cartaoViewDate.setMonth(cartaoViewDate.getMonth() + delta);
   renderCartoes();
+}
+
+// ─── Cartões de pagamento ─────────────────────────────────────────────────
+const CORES_CARTAO = {
+  'XP':     { bg:'#fff3e0', txt:'#e65100', border:'#f97316' },
+  'Nubank': { bg:'#f3e8ff', txt:'#7e22ce', border:'#a855f7' },
+  'Itaú':   { bg:'#e0f2fe', txt:'#0369a1', border:'#0ea5e9' },
+  'Débito': { bg:'#f0fdf4', txt:'#15803d', border:'#22c55e' },
+  'Dinheiro':{ bg:'#f9fafb',txt:'#374151', border:'#9ca3af' },
+};
+
+function corCartao(nome) {
+  return CORES_CARTAO[nome] || { bg:'#f9fafb', txt:'#374151', border:'#9ca3af' };
+}
+
+function listarCartoes() {
+  const fixos = ['Dinheiro', 'Débito'];
+  const cadastrados = Object.keys(state.cartoes || {});
+  return [...fixos, ...cadastrados.filter(c => !fixos.includes(c))];
+}
+
+let cartaoSelecionado = 'Dinheiro';
+let eCartaoSelecionado = 'Dinheiro';
+
+function renderBotoesCartao(containerId, selecionado, onChange) {
+  const wrap = document.getElementById(containerId);
+  if (!wrap) return;
+  wrap.innerHTML = listarCartoes().map(c => {
+    const cor = corCartao(c);
+    const sel = c === selecionado;
+    return `<button class="cartao-btn${sel?' selected':''}"
+      style="background:${sel?cor.bg:'#f3f4f6'};color:${sel?cor.txt:'#555'};border-color:${sel?cor.border:'transparent'};"
+      onclick="${onChange}('${c}')">${c}</button>`;
+  }).join('');
+}
+
+function selecionarCartaoForm(c) {
+  cartaoSelecionado = c;
+  renderBotoesCartao('pagoComBtns', c, 'selecionarCartaoForm');
+}
+
+function selecionarCartaoEdit(c) {
+  eCartaoSelecionado = c;
+  renderBotoesCartao('eCartaoBtns', c, 'selecionarCartaoEdit');
+}
+
+function badgeCartao(cartao) {
+  if (!cartao || cartao === 'Dinheiro') return '';
+  const cor = corCartao(cartao);
+  return `<span class="badge-cartao" style="background:${cor.bg};color:${cor.txt};">${cartao}</span>`;
 }
 
 // ─── Vencimentos ─────────────────────────────────────────────────────────
