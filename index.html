@@ -1101,11 +1101,6 @@ function configurarRecorrentesJulho() {
 
   state._migJulho2026 = true;
 
-  // Corrigir Leyde em junho (mês de transição — ainda estava com valor antigo)
-  const junhoLans = state.meses?.['2026-06']?.lancamentos || [];
-  junhoLans.forEach(l => {
-    if (/leyde/i.test(l.desc) && l.cat === 'Funcionários') l.valor = 3100;
-  });
 
   salvar();
 }
@@ -1601,6 +1596,31 @@ function seedCartaoXPMaio2026() {
     {desc:'Direção',                   valor:  4.50, cat:'Outros',subcat:'',pessoa:'Família'},
     {desc:'Hearty Appsmarket',         valor:  3.69, cat:'Outros',subcat:'',pessoa:'Família'},
   ];
+  salvar();
+}
+
+// ─── Correções junho/julho 2026 ───────────────────────────────────────────
+function correcoesFuncionariosJunhoJulho() {
+  if (state._correcoesFunJun) return;
+
+  // Leyde junho = R$2100 (julho em diante já está correto em R$3100)
+  (state.meses?.['2026-06']?.lancamentos || []).forEach(l => {
+    if (/leyde/i.test(l.desc) && l.cat === 'Funcionários') l.valor = 2100;
+  });
+
+  // Filadélfia R$370 em junho e julho apenas (pontual)
+  ['2026-06', '2026-07'].forEach((ch, i) => {
+    const ja = (state.meses?.[ch]?.lancamentos || []).some(l => /filad/i.test(l.desc));
+    if (!ja) {
+      getMes(ch).lancamentos.push({
+        id: 9100010 + i, tipo: 'gasto', desc: 'Filadélfia', valor: 370,
+        cat: 'Outros', subcat: '', pessoa: 'Família',
+        data: ch + '-01T00:00:00.000Z'
+      });
+    }
+  });
+
+  state._correcoesFunJun = true;
   salvar();
 }
 
@@ -2700,6 +2720,7 @@ db.ref(DB_REF).on('value', snapshot => {
     // Seeds e migrações rodam na primeira carga com estado limpo
     seedCartaoXPMaio2026();
     patchDatasCartao('XP','2026-05', DATE_XP_0526);
+    correcoesFuncionariosJunhoJulho();
     seedVencimentos();
     preencherValoresVencimentos();
     propagarParcelasXPMaio();
