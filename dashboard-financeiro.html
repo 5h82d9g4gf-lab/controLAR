@@ -2,8 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>ControLAR</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ControLAR">
+<meta name="theme-color" content="#1a1a2e">
+<link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -233,7 +238,57 @@
   .venc-resumo-card label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
   .venc-resumo-card .v { font-size: 1.3rem; font-weight: 700; }
 
-  /* ── Navegação por abas ─────────────────────────────────────── */
+  /* ── Mobile responsivo ──────────────────────────────────────── */
+  @media (max-width: 640px) {
+    header { padding: 14px 16px; }
+    header h1 { font-size: 1.1rem; }
+    .page-tabs { padding: 0 16px; }
+    .page-tab { padding: 10px 14px; font-size: 0.82rem; }
+    .month-nav { padding: 10px 16px; }
+    .month-nav h2 { font-size: 0.95rem; min-width: 120px; }
+    .month-nav button { padding: 5px 10px; font-size: 0.82rem; }
+    main, #pageCartoesInner { padding: 12px 16px; }
+    .cards { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .card { padding: 14px; }
+    .card .valor { font-size: 1.3rem; }
+    .two-col { grid-template-columns: 1fr; gap: 14px; }
+    .panel { padding: 14px; }
+    .panel h3 { font-size: 0.88rem; }
+    .form-grid { grid-template-columns: 1fr; }
+    .tipo-toggle { gap: 6px; }
+    .tipo-btn { font-size: 0.82rem; padding: 7px; }
+    input, select { font-size: 16px !important; } /* evita zoom no iOS */
+    .lancamento-item { gap: 6px; }
+    .lancamento-desc { font-size: 0.85rem; }
+    .lancamento-valor { font-size: 0.88rem; }
+    /* Gráficos no cartão: empilhar */
+    #cartaoGraficosRow1 { grid-template-columns: 1fr !important; }
+    /* Pessoa tabs */
+    #pessoaTabs { gap: 6px; }
+    /* Vencimentos */
+    .venc-resumo { grid-template-columns: 1fr 1fr; }
+    /* Esconder colunas pesadas no mobile */
+    .historico-table th:nth-child(5),
+    .historico-table td:nth-child(5) { display: none; }
+    /* Espaço para o FAB */
+    main, #pageCartoesInner { padding-bottom: 80px; }
+  }
+
+  /* ── FAB — botão flutuante de lançamento rápido ─────────────── */
+  #fab {
+    display: none;
+    position: fixed; bottom: 24px; right: 20px; z-index: 500;
+    width: 58px; height: 58px; border-radius: 50%;
+    background: #1a1a2e; color: white; font-size: 1.6rem;
+    border: none; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    align-items: center; justify-content: center;
+    transition: transform 0.15s;
+  }
+  #fab:active { transform: scale(0.92); }
+  @media (max-width: 640px) { #fab { display: flex; } }
+
+  /* ── Navegação por abas ──────────────────────────────────────── */
   .page-tabs {
     background: #1a1a2e;
     display: flex;
@@ -341,6 +396,9 @@
   <h1>🏠 ControLAR</h1>
   <span id="headerNomes">Família</span>
 </header>
+
+<!-- Botão flutuante mobile -->
+<button id="fab" onclick="abrirFAB()" title="Lançar gasto rápido">＋</button>
 
 <div class="page-tabs">
   <div class="page-tab active" id="tabDashboard" onclick="trocarPagina('dashboard')">📊 Dashboard</div>
@@ -548,6 +606,42 @@
     <!-- Categorias accordion -->
     <div id="cartaoCategorias"></div>
 
+  </div>
+</div>
+
+<!-- Modal lançamento rápido (FAB mobile) -->
+<div id="modalFAB" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center;">
+  <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:480px;box-shadow:0 -4px 24px rgba(0,0,0,0.2);">
+    <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 20px;"></div>
+    <h3 style="font-size:1rem;margin-bottom:14px;">⚡ Lançamento Rápido</h3>
+
+    <!-- Receita / Gasto -->
+    <div class="tipo-toggle" style="margin-bottom:12px;">
+      <div class="tipo-btn active-receita" id="fabBtnReceita" onclick="setTipoFAB('receita')">↑ Receita</div>
+      <div class="tipo-btn"               id="fabBtnGasto"   onclick="setTipoFAB('gasto')">↓ Gasto</div>
+    </div>
+
+    <input type="text"   id="fabDesc"  placeholder="Descrição" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px;margin-bottom:10px;box-sizing:border-box;">
+    <input type="number" id="fabValor" placeholder="Valor (R$)" inputmode="decimal" style="width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px;margin-bottom:10px;box-sizing:border-box;">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <select id="fabCat" style="padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#fafafa;"></select>
+      <select id="fabPessoa" style="padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#fafafa;">
+        <option value="Família">Família</option>
+        <option value="Carlos">Carlos</option>
+        <option value="Luisa">Luisa</option>
+        <option value="Helena">Helena</option>
+      </select>
+    </div>
+
+    <!-- Cartão (só gastos) -->
+    <div id="fabCartaoWrap" style="margin-bottom:14px;">
+      <div style="font-size:0.78rem;color:#888;margin-bottom:6px;">💳 Pago com</div>
+      <div class="cartao-btns" id="fabCartaoBtns"></div>
+    </div>
+
+    <button onclick="salvarFAB()" style="width:100%;padding:14px;background:#1a1a2e;color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;">Adicionar</button>
+    <button onclick="fecharFAB()" style="width:100%;padding:10px;background:none;border:none;color:#aaa;font-size:0.9rem;cursor:pointer;margin-top:8px;">Cancelar</button>
   </div>
 </div>
 
@@ -1489,6 +1583,69 @@ function mudarMesCartao(delta) {
   cartaoViewDate.setMonth(cartaoViewDate.getMonth() + delta);
   renderCartoes();
 }
+
+// ─── FAB — lançamento rápido mobile ──────────────────────────────────────
+let tipoFAB = 'gasto';
+let cartaoFAB = 'Dinheiro';
+
+const CATS_RECEITA_FAB = ['Salário','Freelance / Extra','Outros'];
+const CATS_GASTO_FAB   = ['Alimentação','Moradia','Carro','Transporte','Saúde','Esportes / Lazer',
+                           'Lazer','Vestuário','Assinaturas','Educação','Impostos / Tributos',
+                           'Contabilidade','Custos Empresa Luisa','Funcionários','Outros'];
+
+function abrirFAB() {
+  tipoFAB = 'gasto';
+  cartaoFAB = 'Dinheiro';
+  document.getElementById('fabDesc').value = '';
+  document.getElementById('fabValor').value = '';
+  atualizarFABTipo();
+  document.getElementById('modalFAB').style.display = 'flex';
+  setTimeout(() => document.getElementById('fabDesc').focus(), 200);
+}
+
+function fecharFAB() {
+  document.getElementById('modalFAB').style.display = 'none';
+}
+
+function setTipoFAB(t) {
+  tipoFAB = t;
+  atualizarFABTipo();
+}
+
+function atualizarFABTipo() {
+  document.getElementById('fabBtnReceita').className = 'tipo-btn' + (tipoFAB==='receita' ? ' active-receita' : '');
+  document.getElementById('fabBtnGasto').className   = 'tipo-btn' + (tipoFAB==='gasto'   ? ' active-gasto'   : '');
+  const cats = tipoFAB === 'receita' ? CATS_RECEITA_FAB : CATS_GASTO_FAB;
+  document.getElementById('fabCat').innerHTML = cats.map(c => `<option>${c}</option>`).join('');
+  const cWrap = document.getElementById('fabCartaoWrap');
+  cWrap.style.display = tipoFAB === 'gasto' ? 'block' : 'none';
+  if (tipoFAB === 'gasto') renderBotoesCartao('fabCartaoBtns', cartaoFAB, 'selecionarCartaoFAB');
+}
+
+function selecionarCartaoFAB(c) {
+  cartaoFAB = c;
+  renderBotoesCartao('fabCartaoBtns', c, 'selecionarCartaoFAB');
+}
+
+function salvarFAB() {
+  const desc  = document.getElementById('fabDesc').value.trim();
+  const valor = parseFloat(document.getElementById('fabValor').value);
+  const cat   = document.getElementById('fabCat').value || 'Outros';
+  const pessoa= document.getElementById('fabPessoa').value;
+  const cartao= tipoFAB === 'gasto' ? cartaoFAB : null;
+  if (!desc || isNaN(valor) || valor <= 0) { alert('Preencha descrição e valor.'); return; }
+  getMes(chaveMs(viewDate)).lancamentos.push({
+    id: Date.now(), tipo: tipoFAB, desc, valor, cat, subcat: '', pessoa, cartao,
+    data: new Date().toISOString()
+  });
+  salvar();
+  fecharFAB();
+  renderizar();
+}
+
+document.getElementById('modalFAB').addEventListener('click', function(e) {
+  if (e.target === this) fecharFAB();
+});
 
 // ─── Cartões de pagamento ─────────────────────────────────────────────────
 const CORES_CARTAO = {
