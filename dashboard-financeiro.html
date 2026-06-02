@@ -661,6 +661,14 @@
       </div>
     </div>
 
+    <!-- Somatória do filtro -->
+    <div id="filtroSoma" style="display:none;background:#f8f9fa;border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;gap:16px;flex-wrap:wrap;align-items:center;">
+      <span style="font-size:0.75rem;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;">Somatória filtrada</span>
+      <span id="somaReceitas" style="font-size:0.88rem;font-weight:700;color:#16a34a;"></span>
+      <span id="somaGastos"   style="font-size:0.88rem;font-weight:700;color:#dc2626;"></span>
+      <span id="somaSaldo"    style="font-size:0.88rem;font-weight:700;"></span>
+    </div>
+
     <div class="lancamentos-lista" id="listaLancamentos" style="max-height:480px;">
       <div class="empty-msg">Nenhum lançamento ainda.</div>
     </div>
@@ -2125,10 +2133,27 @@ function aplicarFiltros() {
     return true;
   });
 
+  const filtroAtivo = filtroTipo || filtroPessoa || cat || filtroCartao || texto;
   document.getElementById('filtroCount').textContent =
     filtradas.length < todas.length ? `${filtradas.length} de ${todas.length}` : '';
   document.getElementById('filtroCat').className =
     'filtro-select' + (cat ? ' ativo' : '');
+
+  // Somatória do filtro
+  const somaEl = document.getElementById('filtroSoma');
+  if (filtroAtivo && filtradas.length) {
+    const rec  = filtradas.filter(l => l.tipo === 'receita').reduce((s,l) => s+l.valor, 0);
+    const gas  = filtradas.filter(l => l.tipo === 'gasto').reduce((s,l) => s+l.valor, 0);
+    const sal  = rec - gas;
+    document.getElementById('somaReceitas').textContent = rec  > 0 ? `↑ ${fmt(rec)}`  : '';
+    document.getElementById('somaGastos').textContent   = gas  > 0 ? `↓ ${fmt(gas)}`  : '';
+    document.getElementById('somaSaldo').textContent    = filtroTipo ? '' :
+      `= ${sal >= 0 ? '+' : ''}${fmt(sal)}`;
+    document.getElementById('somaSaldo').style.color    = sal >= 0 ? '#2563eb' : '#ea580c';
+    somaEl.style.display = 'flex';
+  } else {
+    somaEl.style.display = 'none';
+  }
 
   renderizarLista(filtradas);
 }
