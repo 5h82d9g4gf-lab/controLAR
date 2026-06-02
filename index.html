@@ -1597,6 +1597,56 @@ function seedCartaoXPMaio2026() {
   salvar();
 }
 
+// ─── Limpeza de duplicatas ────────────────────────────────────────────────
+function limparDuplicatas() {
+  let totalRemovidos = 0;
+  const relatorio = [];
+
+  Object.entries(state.meses).forEach(([chave, mes]) => {
+    const antes = mes.lancamentos.length;
+    const vistos = new Map();
+    const unicos = [];
+
+    mes.lancamentos.forEach(l => {
+      // Chave de duplicata: desc + valor arredondado + tipo + parcela (se existir) + recorrenteId
+      const valorKey = Math.round(l.valor * 100); // centavos
+      const parcelaKey = l.parcela ? `${l.parcela.atual}/${l.parcela.total}` : 'np';
+      const recKey = l.recorrenteId || 'nr';
+      const dupKey = `${l.tipo}|${l.desc}|${valorKey}|${parcelaKey}|${recKey}`;
+
+      if (vistos.has(dupKey)) {
+        // Manter o mais antigo (menor id)
+        const existente = vistos.get(dupKey);
+        if (l.id < existente.id) {
+          // Este é mais antigo — trocar
+          unicos.splice(unicos.indexOf(existente), 1);
+          unicos.push(l);
+          vistos.set(dupKey, l);
+        }
+        // senão descarta o atual (é o duplicado)
+      } else {
+        vistos.set(dupKey, l);
+        unicos.push(l);
+      }
+    });
+
+    const removidos = antes - unicos.length;
+    if (removidos > 0) {
+      mes.lancamentos = unicos;
+      totalRemovidos += removidos;
+      relatorio.push(`${chave}: ${removidos} duplicata(s) removida(s)`);
+    }
+  });
+
+  if (totalRemovidos > 0) {
+    salvar();
+    console.log(`limparDuplicatas: ${totalRemovidos} removidos`, relatorio);
+  } else {
+    console.log('limparDuplicatas: nenhuma duplicata encontrada ✅');
+  }
+  return { total: totalRemovidos, relatorio };
+}
+
 // ─── Propagar parcelas XP maio/2026 no dashboard ─────────────────────────
 function propagarParcelasXPMaio() {
   if (state._propagXPMaio) return;
@@ -2545,6 +2595,7 @@ db.ref(DB_REF).on('value', snapshot => {
     propagarParcelasXPMaio();
     migrarCartaoXP();
     migrarTudoRecorrente();
+    const dupResult = limparDuplicatas();
     seedFaturaJulho2026();
     migrarPichau();
     migrarCorrecoesFatura();
