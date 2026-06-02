@@ -202,6 +202,36 @@
 
   .section-full { margin-bottom: 24px; }
 
+  /* ── Filtros da lista ───────────────────────────────────────── */
+  .filtros-wrap {
+    display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
+  }
+  .filtro-search {
+    width: 100%; padding: 9px 12px 9px 34px; border: 1px solid #ddd;
+    border-radius: 8px; font-size: 0.88rem; background: #fafafa;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: 10px center;
+    transition: border-color 0.15s; box-sizing: border-box;
+  }
+  .filtro-search:focus { outline: none; border-color: #3b82f6; background-color: white; }
+  .filtro-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .filtro-label { font-size: 0.72rem; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .filtro-chip {
+    padding: 4px 10px; border-radius: 16px; border: 1.5px solid #e0e0e0;
+    background: white; font-size: 0.78rem; cursor: pointer; transition: all 0.12s;
+    color: #666; font-weight: 500;
+  }
+  .filtro-chip:hover { border-color: #aaa; }
+  .filtro-chip.ativo { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+  .filtro-chip.ativo-receita { background: #f0fdf4; color: #16a34a; border-color: #22c55e; }
+  .filtro-chip.ativo-gasto   { background: #fef2f2; color: #dc2626; border-color: #ef4444; }
+  .filtro-select {
+    padding: 4px 10px; border-radius: 16px; border: 1.5px solid #e0e0e0;
+    background: white; font-size: 0.78rem; color: #666; cursor: pointer;
+  }
+  .filtro-select.ativo { border-color: #1a1a2e; color: #1a1a2e; font-weight: 600; }
+  .filtro-count { font-size: 0.75rem; color: #aaa; margin-left: auto; }
+
   /* ── Vencimentos ────────────────────────────────────────────── */
   .venc-item {
     display: flex; align-items: center; gap: 12px;
@@ -588,15 +618,46 @@
     </div>
   </div>
 
-  <div class="two-col">
-    <!-- Lista de lançamentos -->
-    <div class="panel">
-      <h3>📋 Lançamentos do Mês</h3>
-      <div class="lancamentos-lista" id="listaLancamentos">
-        <div class="empty-msg">Nenhum lançamento ainda.</div>
+  <!-- Lista de lançamentos (full width com filtros) -->
+  <div class="section-full panel" style="margin-bottom:24px;">
+    <h3 style="margin-bottom:12px;">📋 Lançamentos do Mês</h3>
+
+    <div class="filtros-wrap">
+      <!-- Busca -->
+      <input type="text" class="filtro-search" id="filtroTexto"
+        placeholder="Buscar por nome..." oninput="aplicarFiltros()">
+
+      <!-- Tipo -->
+      <div class="filtro-chips">
+        <span class="filtro-label">Tipo</span>
+        <button class="filtro-chip ativo" id="ftTodos"   onclick="setFiltroTipo('')">Todos</button>
+        <button class="filtro-chip"       id="ftReceita" onclick="setFiltroTipo('receita')">↑ Receita</button>
+        <button class="filtro-chip"       id="ftGasto"   onclick="setFiltroTipo('gasto')">↓ Gasto</button>
+        <span class="filtro-count" id="filtroCount"></span>
+      </div>
+
+      <!-- Pessoa -->
+      <div class="filtro-chips">
+        <span class="filtro-label">Pessoa</span>
+        <button class="filtro-chip ativo" id="fpTodos"  onclick="setFiltroPessoa('')">Todos</button>
+        <button class="filtro-chip" id="fpCarlos"       onclick="setFiltroPessoa('Carlos')">Carlos</button>
+        <button class="filtro-chip" id="fpLuisa"        onclick="setFiltroPessoa('Luisa')">Luisa</button>
+        <button class="filtro-chip" id="fpHelena"       onclick="setFiltroPessoa('Helena')">Helena</button>
+        <button class="filtro-chip" id="fpFamilia"      onclick="setFiltroPessoa('Família')">Família</button>
+      </div>
+
+      <!-- Categoria -->
+      <div class="filtro-chips">
+        <span class="filtro-label">Categoria</span>
+        <select class="filtro-select" id="filtroCat" onchange="aplicarFiltros()">
+          <option value="">Todas</option>
+        </select>
       </div>
     </div>
 
+    <div class="lancamentos-lista" id="listaLancamentos" style="max-height:480px;">
+      <div class="empty-msg">Nenhum lançamento ainda.</div>
+    </div>
   </div>
 
   <!-- Vencimentos -->
@@ -1126,34 +1187,9 @@ function renderizar() {
   const saldoWrap = document.getElementById('cardSaldoWrap');
   saldoWrap.className = 'card ' + (saldo >= 0 ? 'saldo-pos' : 'saldo-neg');
 
-  // Lista
-  const lista = document.getElementById('listaLancamentos');
-  if (lans.length === 0) {
-    lista.innerHTML = '<div class="empty-msg">Nenhum lançamento ainda.</div>';
-  } else {
-    lista.innerHTML = [...lans].reverse().map(l => `
-      <div class="lancamento-item">
-        <div>
-          <div class="lancamento-desc">
-            ${esc(l.desc)}
-            ${l.recorrente
-              ? '<span title="Recorrente" style="font-size:0.75rem;background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">🔁</span>'
-              : l.parcela
-                ? `<span title="Parcelado ${l.parcela.atual}/${l.parcela.total}" style="font-size:0.75rem;background:#fef9c3;color:#854d0e;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">💳 ${l.parcela.atual}/${l.parcela.total}</span>`
-                : '<span title="Pontual" style="font-size:0.75rem;background:#f3f4f6;color:#6b7280;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">📌</span>'
-            }
-          </div>
-          <div class="lancamento-meta" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-            ${l.cat}${l.subcat ? ' · ' + l.subcat : ''} · ${l.pessoa}
-            ${l.cartao && l.cartao !== 'Dinheiro' ? badgeCartao(l.cartao) : ''}
-          </div>
-        </div>
-        <span class="lancamento-valor ${l.tipo}">${l.tipo === 'receita' ? '+' : '-'}${fmt(l.valor)}</span>
-        <button class="btn-del" onclick="abrirEdicao(${l.id})" title="Editar" style="color:#bbb;font-size:0.85rem;">✏️</button>
-        <button class="btn-del" onclick="remover(${l.id})" title="Remover">×</button>
-      </div>
-    `).join('');
-  }
+  // Atualiza select de categorias e aplica filtros (renderiza a lista)
+  atualizarSelectCategorias(lans);
+  aplicarFiltros();
 
   // Gráficos (só gastos)
   const gastos = lans.filter(l => l.tipo === 'gasto');
@@ -1169,6 +1205,37 @@ function renderizar() {
 
   // Histórico
   renderHistorico();
+}
+
+function renderizarLista(lans) {
+  const lista = document.getElementById('listaLancamentos');
+  if (!lista) return;
+  if (!lans.length) {
+    lista.innerHTML = '<div class="empty-msg">Nenhum lançamento encontrado.</div>';
+    return;
+  }
+  lista.innerHTML = [...lans].reverse().map(l => `
+    <div class="lancamento-item">
+      <div>
+        <div class="lancamento-desc">
+          ${esc(l.desc)}
+          ${l.recorrente
+            ? '<span title="Recorrente" style="font-size:0.75rem;background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">🔁</span>'
+            : l.parcela
+              ? `<span title="Parcelado ${l.parcela.atual}/${l.parcela.total}" style="font-size:0.75rem;background:#fef9c3;color:#854d0e;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">💳 ${l.parcela.atual}/${l.parcela.total}</span>`
+              : '<span title="Pontual" style="font-size:0.75rem;background:#f3f4f6;color:#6b7280;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">📌</span>'
+          }
+        </div>
+        <div class="lancamento-meta" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+          ${l.cat}${l.subcat ? ' · ' + l.subcat : ''} · ${l.pessoa}
+          ${l.cartao && l.cartao !== 'Dinheiro' ? badgeCartao(l.cartao) : ''}
+        </div>
+      </div>
+      <span class="lancamento-valor ${l.tipo}">${l.tipo === 'receita' ? '+' : '-'}${fmt(l.valor)}</span>
+      <button class="btn-del" onclick="abrirEdicao(${l.id})" title="Editar" style="color:#bbb;font-size:0.85rem;">✏️</button>
+      <button class="btn-del" onclick="remover(${l.id})" title="Remover">×</button>
+    </div>
+  `).join('');
 }
 
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1940,6 +2007,64 @@ function migrarTudoRecorrente() {
   });
   state._migRecorrente = true;
   salvar();
+}
+
+// ─── Filtros da lista ────────────────────────────────────────────────────
+let filtroTipo   = '';
+let filtroPessoa = '';
+
+function setFiltroTipo(t) {
+  filtroTipo = t;
+  ['ftTodos','ftReceita','ftGasto'].forEach(id => {
+    document.getElementById(id)?.classList.remove('ativo','ativo-receita','ativo-gasto');
+  });
+  if (!t) document.getElementById('ftTodos').classList.add('ativo');
+  else if (t==='receita') document.getElementById('ftReceita').classList.add('ativo-receita');
+  else document.getElementById('ftGasto').classList.add('ativo-gasto');
+  aplicarFiltros();
+}
+
+function setFiltroPessoa(p) {
+  filtroPessoa = p;
+  ['fpTodos','fpCarlos','fpLuisa','fpHelena','fpFamilia'].forEach(id => {
+    document.getElementById(id)?.classList.remove('ativo');
+  });
+  const idMap = {'':'fpTodos','Carlos':'fpCarlos','Luisa':'fpLuisa','Helena':'fpHelena','Família':'fpFamilia'};
+  document.getElementById(idMap[p])?.classList.add('ativo');
+  aplicarFiltros();
+}
+
+function atualizarSelectCategorias(lans) {
+  const sel = document.getElementById('filtroCat');
+  if (!sel) return;
+  const cats = [...new Set(lans.map(l => l.cat).filter(Boolean))].sort();
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todas</option>' + cats.map(c =>
+    `<option${c===atual?' selected':''}>${c}</option>`).join('');
+  sel.className = 'filtro-select' + (atual ? ' ativo' : '');
+}
+
+function aplicarFiltros() {
+  const chave = chaveMs(viewDate);
+  const todas = getMes(chave).lancamentos.filter(l => !l._skip);
+  const texto = (document.getElementById('filtroTexto')?.value || '').toLowerCase().trim();
+  const cat   = document.getElementById('filtroCat')?.value || '';
+
+  const filtradas = todas.filter(l => {
+    if (filtroTipo   && l.tipo    !== filtroTipo)   return false;
+    if (filtroPessoa && l.pessoa  !== filtroPessoa) return false;
+    if (cat          && l.cat     !== cat)          return false;
+    if (texto && !l.desc.toLowerCase().includes(texto)) return false;
+    return true;
+  });
+
+  document.getElementById('filtroCount').textContent =
+    filtradas.length < todas.length ? `${filtradas.length} de ${todas.length}` : '';
+
+  document.getElementById('filtroCat').className =
+    'filtro-select' + (cat ? ' ativo' : '');
+
+  renderizarLista(filtradas);
 }
 
 // ─── Navegação entre páginas ─────────────────────────────────────────────
