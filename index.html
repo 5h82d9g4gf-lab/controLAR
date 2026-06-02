@@ -10,6 +10,7 @@
 <meta name="theme-color" content="#1a1a2e">
 <link rel="manifest" href="manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -1264,6 +1265,9 @@ const CORES = ['#3b82f6','#ef4444','#22c55e','#f97316','#a855f7','#14b8a6','#f59
 let chartSubcat = null;
 let gastosCache = [];
 
+// Registrar plugin de labels nas fatias
+if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels);
+
 function desenharDoughnut(canvasId, chartRef, labels, data, onClickCb) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   if (chartRef) chartRef.destroy();
@@ -1273,15 +1277,28 @@ function desenharDoughnut(canvasId, chartRef, labels, data, onClickCb) {
     ctx.fillText('Sem dados', ctx.canvas.width / 2, ctx.canvas.height / 2);
     return null;
   }
+  const total = data.reduce((a, b) => a + b, 0);
   return new Chart(ctx, {
     type: 'doughnut',
+    plugins: typeof ChartDataLabels !== 'undefined' ? [ChartDataLabels] : [],
     data: { labels, datasets: [{ data, backgroundColor: CORES.slice(0, labels.length), borderWidth: 2 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       onClick: onClickCb || null,
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 8, boxWidth: 12 } },
-        tooltip: { callbacks: { label: c => ` ${fmt(c.raw)} (${((c.raw / c.dataset.data.reduce((a,b)=>a+b,0))*100).toFixed(1)}%)` } }
+        tooltip: { callbacks: { label: c => ` ${fmt(c.raw)} (${((c.raw / total)*100).toFixed(1)}%)` } },
+        datalabels: {
+          color: '#fff',
+          font: { weight: 'bold', size: 11 },
+          textShadow: true,
+          textStrokeColor: 'rgba(0,0,0,0.3)',
+          textStrokeWidth: 2,
+          formatter: (value) => {
+            const pct = (value / total) * 100;
+            return pct >= 5 ? pct.toFixed(1) + '%' : '';
+          }
+        }
       }
     }
   });
