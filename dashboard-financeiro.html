@@ -1109,7 +1109,7 @@ function configurarRecorrentesJulho() {
 function renderizar() {
   const chave = chaveMs(viewDate);
   const mes   = getMes(chave);
-  const lans  = mes.lancamentos;
+  const lans  = mes.lancamentos.filter(l => !l._skip); // ignora tombstones
 
   document.getElementById('mesTitulo').textContent = nomeMes(viewDate);
 
@@ -1597,6 +1597,91 @@ function seedCartaoXPMaio2026() {
     {desc:'Hearty Appsmarket',         valor:  3.69, cat:'Outros',subcat:'',pessoa:'Família'},
   ];
   salvar();
+}
+
+// ─── Condomínio: remover junho, garantir julho ────────────────────────────
+function corrigirCondominio() {
+  if (state._corrigirCond) return;
+
+  // Achar Condomínio em qualquer mês para pegar o recorrenteId
+  let condRef = null;
+  Object.values(state.meses).forEach(mes => {
+    if (!condRef) condRef = mes.lancamentos.find(l =>
+      !l._skip && (/condom/i.test(l.desc) || /condom/i.test(l.subcat||''))
+    );
+  });
+
+  // Remover junho
+  const junMes = getMes('2026-06');
+  junMes.lancamentos = junMes.lancamentos.filter(l =>
+    !(/condom/i.test(l.desc) || /condom/i.test(l.subcat||''))
+  );
+
+  // Tombstone em junho para impedir re-importação pelo recorrente de maio
+  if (condRef?.recorrenteId) {
+    junMes.lancamentos.push({
+      id: 9400001, _skip: true, recorrenteId: condRef.recorrenteId,
+      recorrente: false, tipo: 'gasto', desc: '_skip_cond', valor: 0
+    });
+  }
+
+  // Garantir julho com entrada recorrente (se não existir)
+  const julMes = getMes('2026-07');
+  const jaJulho = julMes.lancamentos.some(l =>
+    !l._skip && (/condom/i.test(l.desc) || /condom/i.test(l.subcat||''))
+  );
+  if (!jaJulho && condRef) {
+    julMes.lancamentos.push({
+      ...condRef,
+      id: 9400002,
+      recorrente: true,
+      recorrenteId: condRef.recorrenteId || ('rec_cond_' + Date.now()),
+      data: '2026-07-01T00:00:00.000Z'
+    });
+  }
+
+  state._corrigirCond = true;
+  salvar();
+}
+
+// ─── Gastos XP maio → dashboard maio ─────────────────────────────────────
+function adicionarXPMaioDashboard() {
+  if (state._xpMaioDash) return;
+
+  const faturaItems = state.cartoes?.['XP']?.['2026-05'] || [];
+  const dashMaio    = getMes('2026-05').lancamentos;
+  let idBase = 9500000;
+  let adicionados = 0;
+
+  faturaItems.forEach(item => {
+    // Deduplicação: mesmo valor (±0.15) E (mesma parcela OU mesmo início de descrição)
+    const isDup = dashMaio.some(l => {
+      if (l.tipo !== 'gasto' || l._skip) return false;
+      if (Math.abs(l.valor - item.valor) > 0.15) return false;
+      if (item.parcela && l.parcela)
+        return l.parcela.atual === item.parcela.atual && l.parcela.total === item.parcela.total;
+      return l.desc.substring(0,7).toLowerCase() === item.desc.substring(0,7).toLowerCase();
+    });
+    if (isDup) return;
+
+    dashMaio.push({
+      id: idBase++,
+      tipo: 'gasto',
+      desc: item.desc,
+      valor: item.valor,
+      cat: item.cat,
+      subcat: item.subcat || '',
+      pessoa: item.pessoa,
+      cartao: 'XP',
+      parcela: item.parcela || null,
+      data: item.data || '2026-05-01T00:00:00.000Z'
+    });
+    adicionados++;
+  });
+
+  state._xpMaioDash = true;
+  salvar();
+  console.log(`XP maio → dashboard: ${adicionados} itens adicionados`);
 }
 
 // ─── Correções junho/julho 2026 ───────────────────────────────────────────
@@ -2720,6 +2805,8 @@ db.ref(DB_REF).on('value', snapshot => {
     // Seeds e migrações rodam na primeira carga com estado limpo
     seedCartaoXPMaio2026();
     patchDatasCartao('XP','2026-05', DATE_XP_0526);
+    corrigirCondominio();
+    adicionarXPMaioDashboard();
     correcoesFuncionariosJunhoJulho();
     seedVencimentos();
     preencherValoresVencimentos();
