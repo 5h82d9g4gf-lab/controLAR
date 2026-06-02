@@ -1597,6 +1597,30 @@ function seedCartaoXPMaio2026() {
   salvar();
 }
 
+// ─── Migração: atribuir cartão XP automaticamente ────────────────────────
+function migrarCartaoXP() {
+  if (state._migCartaoXP) return;
+
+  const isXP = l => {
+    if (l.tipo !== 'gasto') return false;
+    if (l.parcela) return true;                           // parcelado
+    if (l.cat === 'Assinaturas') return true;             // assinatura
+    if (l.subcat === 'Supermercado') return true;         // supermercado
+    if (l.subcat === 'Combustível') return true;          // combustível
+    if (/tennis|beach|arena sports/i.test(l.desc)) return true; // beach tennis
+    return false;
+  };
+
+  Object.values(state.meses).forEach(mes => {
+    mes.lancamentos.forEach(l => {
+      if (isXP(l)) l.cartao = 'XP';
+    });
+  });
+
+  state._migCartaoXP = true;
+  salvar();
+}
+
 // ─── Migração: marcar todos existentes como recorrentes ───────────────────
 function migrarTudoRecorrente() {
   if (state._migRecorrente) return;
@@ -2407,6 +2431,7 @@ db.ref(DB_REF).on('value', snapshot => {
     // Seeds e migrações rodam na primeira carga com estado limpo
     seedCartaoXPMaio2026();
     patchDatasCartao('XP','2026-05', DATE_XP_0526);
+    migrarCartaoXP();
     migrarTudoRecorrente();
     seedFaturaJulho2026();
     migrarPichau();
