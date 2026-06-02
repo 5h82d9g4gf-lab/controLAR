@@ -653,6 +653,12 @@
           <option value="">Todas</option>
         </select>
       </div>
+
+      <!-- Cartão -->
+      <div class="filtro-chips" id="filtroCartaoRow" style="display:none;">
+        <span class="filtro-label">Cartão</span>
+        <div id="filtroCartaoBtns" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
     </div>
 
     <div class="lancamentos-lista" id="listaLancamentos" style="max-height:480px;">
@@ -1187,8 +1193,9 @@ function renderizar() {
   const saldoWrap = document.getElementById('cardSaldoWrap');
   saldoWrap.className = 'card ' + (saldo >= 0 ? 'saldo-pos' : 'saldo-neg');
 
-  // Atualiza select de categorias e aplica filtros (renderiza a lista)
+  // Filtros e lista
   atualizarSelectCategorias(lans);
+  atualizarFiltroCartoes(lans);
   aplicarFiltros();
 
   // Gráficos (só gastos)
@@ -1751,6 +1758,25 @@ function adicionarXPMaioDashboard() {
   console.log(`XP maio → dashboard: ${adicionados} itens adicionados`);
 }
 
+// ─── Ajuste Aluguel/Condomínio maio 2026 ─────────────────────────────────
+function ajustarMoradiaMaio() {
+  if (state._ajustarMoradiaMaio) return;
+  const maiLans = getMes('2026-05').lancamentos;
+
+  // Remover Aluguel de maio
+  getMes('2026-05').lancamentos = maiLans.filter(l =>
+    !(/aluguel/i.test(l.subcat||'') || /aluguel/i.test(l.desc))
+  );
+
+  // Condomínio maio = R$500
+  getMes('2026-05').lancamentos.forEach(l => {
+    if (/condom/i.test(l.subcat||'') || /condom/i.test(l.desc)) l.valor = 500;
+  });
+
+  state._ajustarMoradiaMaio = true;
+  salvar();
+}
+
 // ─── Correções junho/julho 2026 ───────────────────────────────────────────
 function correcoesFuncionariosJunhoJulho() {
   if (state._correcoesFunJun) return;
@@ -2012,6 +2038,7 @@ function migrarTudoRecorrente() {
 // ─── Filtros da lista ────────────────────────────────────────────────────
 let filtroTipo   = '';
 let filtroPessoa = '';
+let filtroCartao = '';
 
 function setFiltroTipo(t) {
   filtroTipo = t;
@@ -2037,11 +2064,35 @@ function setFiltroPessoa(p) {
 function atualizarSelectCategorias(lans) {
   const sel = document.getElementById('filtroCat');
   if (!sel) return;
+  // Usa só l.cat (categoria principal) — ignora subcat no filtro
   const cats = [...new Set(lans.map(l => l.cat).filter(Boolean))].sort();
   const atual = sel.value;
   sel.innerHTML = '<option value="">Todas</option>' + cats.map(c =>
     `<option${c===atual?' selected':''}>${c}</option>`).join('');
   sel.className = 'filtro-select' + (atual ? ' ativo' : '');
+}
+
+function atualizarFiltroCartoes(lans) {
+  const row  = document.getElementById('filtroCartaoRow');
+  const btns = document.getElementById('filtroCartaoBtns');
+  if (!row || !btns) return;
+  const cartoes = [...new Set(lans.filter(l => l.cartao && l.cartao !== 'Dinheiro').map(l => l.cartao))].sort();
+  if (!cartoes.length) { row.style.display = 'none'; return; }
+  row.style.display = 'flex';
+  btns.innerHTML = `<button class="filtro-chip${!filtroCartao?' ativo':''}" onclick="setFiltroCartao('')">Todos</button>` +
+    cartoes.map(c => {
+      const cor = corCartao(c);
+      const ativo = filtroCartao === c;
+      return `<button class="filtro-chip${ativo?' ativo':''}"
+        style="${ativo?`background:${cor.bg};color:${cor.txt};border-color:${cor.border};`:''}"
+        onclick="setFiltroCartao('${c}')">${c}</button>`;
+    }).join('');
+}
+
+function setFiltroCartao(c) {
+  filtroCartao = c;
+  atualizarFiltroCartoes(getMes(chaveMs(viewDate)).lancamentos.filter(l => !l._skip));
+  aplicarFiltros();
 }
 
 function aplicarFiltros() {
@@ -2051,16 +2102,17 @@ function aplicarFiltros() {
   const cat   = document.getElementById('filtroCat')?.value || '';
 
   const filtradas = todas.filter(l => {
-    if (filtroTipo   && l.tipo    !== filtroTipo)   return false;
-    if (filtroPessoa && l.pessoa  !== filtroPessoa) return false;
-    if (cat          && l.cat     !== cat)          return false;
+    if (filtroTipo   && l.tipo   !== filtroTipo)   return false;
+    if (filtroPessoa && l.pessoa !== filtroPessoa) return false;
+    // Filtra por categoria principal (l.cat), ignorando subcat
+    if (cat && l.cat !== cat)                      return false;
+    if (filtroCartao && l.cartao !== filtroCartao) return false;
     if (texto && !l.desc.toLowerCase().includes(texto)) return false;
     return true;
   });
 
   document.getElementById('filtroCount').textContent =
     filtradas.length < todas.length ? `${filtradas.length} de ${todas.length}` : '';
-
   document.getElementById('filtroCat').className =
     'filtro-select' + (cat ? ' ativo' : '');
 
@@ -2930,6 +2982,7 @@ db.ref(DB_REF).on('value', snapshot => {
     // Seeds e migrações rodam na primeira carga com estado limpo
     seedCartaoXPMaio2026();
     patchDatasCartao('XP','2026-05', DATE_XP_0526);
+    ajustarMoradiaMaio();
     corrigirCondominio();
     adicionarXPMaioDashboard();
     correcoesFuncionariosJunhoJulho();
