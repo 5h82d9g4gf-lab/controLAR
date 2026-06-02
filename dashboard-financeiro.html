@@ -1597,6 +1597,32 @@ function seedCartaoXPMaio2026() {
   salvar();
 }
 
+// ─── Seed vencimentos fixos ───────────────────────────────────────────────
+function seedVencimentos() {
+  if (state._seedVencimentos) return;
+  if (!state.vencimentos) state.vencimentos = [];
+
+  const fixos = [
+    { desc: 'Escola',          diaVencimento: 5,  cat: 'Educação',          pessoa: 'Helena',  valor: 0 },
+    { desc: 'Ballet',          diaVencimento: 5,  cat: 'Educação',          pessoa: 'Helena',  valor: 0 },
+    { desc: 'Cartão XP',       diaVencimento: 5,  cat: 'Cartão de Crédito', pessoa: 'Família', valor: 0 },
+    { desc: 'Cartão Nubank',   diaVencimento: 12, cat: 'Cartão de Crédito', pessoa: 'Família', valor: 0 },
+    { desc: 'Leyde',           diaVencimento: 5,  cat: 'Funcionários',      pessoa: 'Família', valor: 0 },
+    { desc: 'Ana',             diaVencimento: 5,  cat: 'Funcionários',      pessoa: 'Família', valor: 0 },
+    { desc: 'Condomínio',      diaVencimento: 10, cat: 'Moradia',           pessoa: 'Família', valor: 0 },
+    { desc: 'Luz',             diaVencimento: 17, cat: 'Moradia',           pessoa: 'Família', valor: 0 },
+    { desc: 'Filadélfia',      diaVencimento: 10, cat: 'Outros',            pessoa: 'Família', valor: 0 },
+    { desc: 'Aluguel',         diaVencimento: 10, cat: 'Moradia',           pessoa: 'Família', valor: 0 },
+  ];
+
+  fixos.forEach((v, i) => {
+    state.vencimentos.push({ id: 9000000 + i, ...v, pago: false });
+  });
+
+  state._seedVencimentos = true;
+  salvar();
+}
+
 // ─── Limpeza de duplicatas ────────────────────────────────────────────────
 function limparDuplicatas() {
   let totalRemovidos = 0;
@@ -2610,6 +2636,7 @@ db.ref(DB_REF).on('value', snapshot => {
     // Seeds e migrações rodam na primeira carga com estado limpo
     seedCartaoXPMaio2026();
     patchDatasCartao('XP','2026-05', DATE_XP_0526);
+    seedVencimentos();
     propagarParcelasXPMaio();
     migrarCartaoXP();
     migrarTudoRecorrente();
