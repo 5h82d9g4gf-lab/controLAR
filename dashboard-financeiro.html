@@ -580,6 +580,7 @@
         <div style="font-size:0.75rem;color:#888;margin-top:4px;">Ex: parcela atual 4, total 12 → lança as parcelas 4/12 até 12/12</div>
       </div>
       <button class="btn-add" onclick="adicionarLancamento()">Adicionar</button>
+      <button onclick="abrirModalMercado()" style="width:100%;margin-top:8px;padding:9px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:0.85rem;color:#16a34a;cursor:pointer;font-weight:600;">🛒 Compra de Supermercado (dividir)</button>
     </div>
 
     <!-- Gráficos -->
@@ -741,7 +742,9 @@
 <div id="modalFAB" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;align-items:flex-end;justify-content:center;">
   <div style="background:white;border-radius:20px 20px 0 0;padding:24px 20px 36px;width:100%;max-width:480px;box-shadow:0 -4px 24px rgba(0,0,0,0.2);">
     <div style="width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 20px;"></div>
-    <h3 style="font-size:1rem;margin-bottom:14px;">⚡ Lançamento Rápido</h3>
+    <h3 style="font-size:1rem;margin-bottom:10px;">⚡ Lançamento Rápido</h3>
+
+    <button onclick="fecharFAB();abrirModalMercado()" style="width:100%;margin-bottom:14px;padding:11px;background:#f0fdf4;border:1px solid #86efac;border-radius:10px;font-size:0.88rem;color:#16a34a;cursor:pointer;font-weight:600;">🛒 Compra de Supermercado (dividir)</button>
 
     <!-- Receita / Gasto -->
     <div class="tipo-toggle" style="margin-bottom:12px;">
@@ -764,10 +767,20 @@
       </select>
     </div>
 
-    <!-- Modo: Normal / Recorrente -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;" id="fabModoWrap">
-      <div class="tipo-btn active-receita" id="fabModoNormal"     onclick="setModoFAB('normal')"     style="font-size:0.8rem;text-align:center;">📌 Pontual</div>
-      <div class="tipo-btn"               id="fabModoRecorrente" onclick="setModoFAB('recorrente')" style="font-size:0.8rem;text-align:center;">🔁 Recorrente</div>
+    <!-- Modo: Pontual / Recorrente / Parcelado -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;" id="fabModoWrap">
+      <div class="tipo-btn active-receita" id="fabModoNormal"     onclick="setModoFAB('normal')"     style="font-size:0.78rem;text-align:center;">📌 Pontual</div>
+      <div class="tipo-btn"               id="fabModoRecorrente" onclick="setModoFAB('recorrente')" style="font-size:0.78rem;text-align:center;">🔁 Recorr.</div>
+      <div class="tipo-btn"               id="fabModoParcelado"  onclick="setModoFAB('parcelado')"  style="font-size:0.78rem;text-align:center;">💳 Parcel.</div>
+    </div>
+
+    <!-- Campos de parcela (só parcelado) -->
+    <div id="fabParcelasWrap" style="display:none;margin-bottom:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <input type="number" id="fabParcelaAtual" placeholder="Parcela atual (ex: 1)" inputmode="numeric" min="1" max="60" style="padding:13px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+        <input type="number" id="fabParcelas"     placeholder="Total (ex: 12)" inputmode="numeric" min="2" max="60" style="padding:13px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+      </div>
+      <div style="font-size:0.72rem;color:#999;margin-top:4px;">O valor informado é de cada parcela. Serão criadas as parcelas a partir do mês atual.</div>
     </div>
 
     <!-- Cartão (só gastos) -->
@@ -778,6 +791,72 @@
 
     <button onclick="salvarFAB()" style="width:100%;padding:15px;background:#1a1a2e;color:white;border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;letter-spacing:0.02em;">✓ Adicionar</button>
     <button onclick="fecharFAB()" style="width:100%;padding:10px;background:none;border:none;color:#bbb;font-size:0.88rem;cursor:pointer;margin-top:6px;">Cancelar</button>
+  </div>
+</div>
+
+<!-- Modal Compra de Supermercado (dividida) -->
+<div id="modalMercado" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;overflow-y:auto;">
+  <div style="background:white;border-radius:16px;padding:24px 22px 28px;width:100%;max-width:440px;margin:16px;box-shadow:0 8px 32px rgba(0,0,0,0.2);max-height:92vh;overflow-y:auto;">
+    <h3 style="font-size:1.05rem;margin-bottom:4px;">🛒 Compra de Supermercado</h3>
+    <p style="font-size:0.78rem;color:#999;margin-bottom:16px;">Divida a compra nas 4 categorias. O total bate com a fatura e cada parte fica separada para análise.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <input type="text" id="mercDesc" placeholder="Mercado (ex: Big Mais)" style="padding:12px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+      <select id="mercPessoa" style="padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#fafafa;">
+        <option value="Família">Família</option>
+        <option value="Carlos">Carlos</option>
+        <option value="Luisa">Luisa</option>
+        <option value="Helena">Helena</option>
+      </select>
+    </div>
+
+    <!-- 4 valores -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:96px;font-size:0.85rem;color:#444;">🍎 Alimentação</span>
+        <input type="number" id="mercAlimentacao" placeholder="R$ 0,00" inputmode="decimal" oninput="atualizarTotalMercado()" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:96px;font-size:0.85rem;color:#444;">🧼 Higiene</span>
+        <input type="number" id="mercHigiene" placeholder="R$ 0,00" inputmode="decimal" oninput="atualizarTotalMercado()" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:96px;font-size:0.85rem;color:#444;">🧹 Limpeza</span>
+        <input type="number" id="mercLimpeza" placeholder="R$ 0,00" inputmode="decimal" oninput="atualizarTotalMercado()" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="width:96px;font-size:0.85rem;color:#444;">📦 Outros</span>
+        <input type="number" id="mercOutros" placeholder="R$ 0,00" inputmode="decimal" oninput="atualizarTotalMercado()" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#f8f9fa;border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+      <span style="font-size:0.82rem;color:#888;font-weight:600;">TOTAL DA COMPRA</span>
+      <span id="mercTotal" style="font-size:1.1rem;font-weight:700;color:#1a1a2e;">R$ 0,00</span>
+    </div>
+
+    <!-- Cartão -->
+    <div style="margin-bottom:12px;">
+      <div style="font-size:0.78rem;color:#888;margin-bottom:6px;">💳 Pago com</div>
+      <div class="cartao-btns" id="mercCartaoBtns"></div>
+    </div>
+
+    <!-- Modo -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div class="tipo-btn active-receita" id="mercModoNormal"    onclick="setModoMercado('normal')"    style="font-size:0.8rem;text-align:center;">📌 Pontual</div>
+      <div class="tipo-btn"               id="mercModoParcelado" onclick="setModoMercado('parcelado')" style="font-size:0.8rem;text-align:center;">💳 Parcelado</div>
+    </div>
+    <div id="mercParcelasWrap" style="display:none;margin-bottom:12px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <input type="number" id="mercParcelaAtual" placeholder="Parcela atual" inputmode="numeric" min="1" max="60" style="padding:11px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+        <input type="number" id="mercParcelas"     placeholder="Total parcelas" inputmode="numeric" min="2" max="60" style="padding:11px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box;">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button onclick="fecharModalMercado()" style="flex:1;padding:12px;border:1px solid #ddd;border-radius:10px;background:white;cursor:pointer;font-size:0.9rem;">Cancelar</button>
+      <button onclick="salvarMercado()" style="flex:2;padding:12px;background:#1a1a2e;color:white;border:none;border-radius:10px;cursor:pointer;font-size:0.95rem;font-weight:700;">✓ Adicionar compra</button>
+    </div>
   </div>
 </div>
 
@@ -1247,7 +1326,7 @@ function renderizarLista(lans) {
           }
         </div>
         <div class="lancamento-meta" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-          ${l.cat}${l.subcat ? ' · ' + l.subcat : ''} · ${l.pessoa}
+          ${l.cat}${l.subcat ? ' · ' + l.subcat : ''}${l.superTipo ? ' · ' + l.superTipo : ''} · ${l.pessoa}
           ${l.cartao && l.cartao !== 'Dinheiro' ? badgeCartao(l.cartao) : ''}
         </div>
       </div>
@@ -1336,11 +1415,13 @@ function renderGraficoSubcat(cat, gastos) {
     return;
   }
   // Inclui TODOS os itens da categoria
-  // Com subcat → agrupa pela subcat | Sem subcat → mostra pelo nome do gasto
+  // Supermercado dividido → "Supermercado · <bucket>" | Com subcat → subcat | Sem subcat → nome
   const filtrados = gastos.filter(l => l.cat === cat);
   const ag = {};
   filtrados.forEach(l => {
-    const key = l.subcat || l.desc;
+    let key;
+    if (l.superTipo) key = 'Supermercado · ' + l.superTipo;
+    else key = l.subcat || l.desc;
     ag[key] = (ag[key] || 0) + l.valor;
   });
   const labels = Object.keys(ag).sort((a,b) => ag[b] - ag[a]);
@@ -2245,6 +2326,8 @@ function abrirFAB() {
   tipoFAB = 'gasto'; cartaoFAB = 'Dinheiro'; modoFAB = 'normal';
   document.getElementById('fabDesc').value = '';
   document.getElementById('fabValor').value = '';
+  document.getElementById('fabParcelaAtual').value = '';
+  document.getElementById('fabParcelas').value = '';
   atualizarFABTipo();
   setModoFAB('normal');
   document.getElementById('modalFAB').style.display = 'flex';
@@ -2255,6 +2338,8 @@ function setModoFAB(m) {
   modoFAB = m;
   document.getElementById('fabModoNormal').className     = 'tipo-btn' + (m==='normal'     ? ' active-receita' : '');
   document.getElementById('fabModoRecorrente').className = 'tipo-btn' + (m==='recorrente' ? ' active-receita' : '');
+  document.getElementById('fabModoParcelado').className  = 'tipo-btn' + (m==='parcelado'  ? ' active-receita' : '');
+  document.getElementById('fabParcelasWrap').style.display = m === 'parcelado' ? 'block' : 'none';
 }
 
 function fecharFAB() {
@@ -2288,12 +2373,31 @@ function salvarFAB() {
   const pessoa= document.getElementById('fabPessoa').value;
   const cartao= tipoFAB === 'gasto' ? cartaoFAB : null;
   if (!desc || isNaN(valor) || valor <= 0) { alert('Preencha descrição e valor.'); return; }
-  const rid = modoFAB === 'recorrente' ? 'rec_' + Date.now() : null;
-  getMes(chaveMs(viewDate)).lancamentos.push({
-    id: Date.now(), tipo: tipoFAB, desc, valor, cat, subcat: '', pessoa, cartao,
-    recorrente: modoFAB === 'recorrente', recorrenteId: rid,
-    data: new Date().toISOString()
-  });
+
+  if (modoFAB === 'parcelado') {
+    const atual = parseInt(document.getElementById('fabParcelaAtual').value) || 1;
+    const total = parseInt(document.getElementById('fabParcelas').value);
+    if (!total || total < 2) { alert('Informe o total de parcelas (mínimo 2).'); return; }
+    if (atual < 1 || atual > total) { alert(`A parcela atual deve ser entre 1 e ${total}.`); return; }
+    const rid = Date.now();
+    const restantes = total - atual + 1;
+    for (let i = 0; i < restantes; i++) {
+      const d = new Date(viewDate);
+      d.setMonth(d.getMonth() + i);
+      getMes(chaveMs(d)).lancamentos.push({
+        id: rid + i, tipo: tipoFAB, desc, valor, cat, subcat: '', pessoa, cartao,
+        parcela: { atual: atual + i, total },
+        data: new Date().toISOString()
+      });
+    }
+  } else {
+    const rid = modoFAB === 'recorrente' ? 'rec_' + Date.now() : null;
+    getMes(chaveMs(viewDate)).lancamentos.push({
+      id: Date.now(), tipo: tipoFAB, desc, valor, cat, subcat: '', pessoa, cartao,
+      recorrente: modoFAB === 'recorrente', recorrenteId: rid,
+      data: new Date().toISOString()
+    });
+  }
   salvar();
   fecharFAB();
   renderizar();
@@ -2301,6 +2405,104 @@ function salvarFAB() {
 
 document.getElementById('modalFAB').addEventListener('click', function(e) {
   if (e.target === this) fecharFAB();
+});
+
+// ─── Compra de Supermercado (dividida em 4 subcategorias) ─────────────────
+let cartaoMercado = 'XP';
+let modoMercado = 'normal';
+
+const MERC_BUCKETS = [
+  { id: 'mercAlimentacao', nome: 'Alimentação' },
+  { id: 'mercHigiene',     nome: 'Higiene' },
+  { id: 'mercLimpeza',     nome: 'Limpeza' },
+  { id: 'mercOutros',      nome: 'Outros' },
+];
+
+function abrirModalMercado() {
+  cartaoMercado = 'XP'; modoMercado = 'normal';
+  document.getElementById('mercDesc').value = '';
+  document.getElementById('mercPessoa').value = 'Família';
+  MERC_BUCKETS.forEach(b => document.getElementById(b.id).value = '');
+  document.getElementById('mercParcelaAtual').value = '';
+  document.getElementById('mercParcelas').value = '';
+  atualizarTotalMercado();
+  setModoMercado('normal');
+  renderBotoesCartao('mercCartaoBtns', cartaoMercado, 'selecionarCartaoMercado');
+  document.getElementById('modalMercado').style.display = 'flex';
+}
+
+function fecharModalMercado() {
+  document.getElementById('modalMercado').style.display = 'none';
+}
+
+function selecionarCartaoMercado(c) {
+  cartaoMercado = c;
+  renderBotoesCartao('mercCartaoBtns', c, 'selecionarCartaoMercado');
+}
+
+function setModoMercado(m) {
+  modoMercado = m;
+  document.getElementById('mercModoNormal').className    = 'tipo-btn' + (m==='normal'    ? ' active-receita' : '');
+  document.getElementById('mercModoParcelado').className = 'tipo-btn' + (m==='parcelado' ? ' active-receita' : '');
+  document.getElementById('mercParcelasWrap').style.display = m === 'parcelado' ? 'block' : 'none';
+}
+
+function atualizarTotalMercado() {
+  const total = MERC_BUCKETS.reduce((s,b) =>
+    s + (parseFloat(document.getElementById(b.id).value) || 0), 0);
+  document.getElementById('mercTotal').textContent = fmt(total);
+}
+
+function salvarMercado() {
+  const desc   = document.getElementById('mercDesc').value.trim() || 'Supermercado';
+  const pessoa = document.getElementById('mercPessoa').value;
+  const cartao = cartaoMercado;
+
+  const partes = MERC_BUCKETS
+    .map(b => ({ nome: b.nome, valor: parseFloat(document.getElementById(b.id).value) || 0 }))
+    .filter(p => p.valor > 0);
+
+  if (!partes.length) { alert('Informe ao menos um valor.'); return; }
+
+  // Parcelamento (opcional)
+  let parcelaInfo = null, restantes = 1, atual = 1, total = 1;
+  if (modoMercado === 'parcelado') {
+    atual = parseInt(document.getElementById('mercParcelaAtual').value) || 1;
+    total = parseInt(document.getElementById('mercParcelas').value);
+    if (!total || total < 2) { alert('Informe o total de parcelas (mínimo 2).'); return; }
+    if (atual < 1 || atual > total) { alert(`Parcela atual entre 1 e ${total}.`); return; }
+    restantes = total - atual + 1;
+  }
+
+  const rid = Date.now();
+  let idc = 0;
+  for (let i = 0; i < restantes; i++) {
+    const d = new Date(viewDate);
+    d.setMonth(d.getMonth() + i);
+    const chave = chaveMs(d);
+    partes.forEach(p => {
+      getMes(chave).lancamentos.push({
+        id: rid + (idc++),
+        tipo: 'gasto',
+        desc,
+        valor: p.valor,
+        cat: 'Alimentação',
+        subcat: 'Supermercado',
+        superTipo: p.nome,
+        pessoa, cartao,
+        parcela: modoMercado === 'parcelado' ? { atual: atual + i, total } : undefined,
+        data: new Date().toISOString()
+      });
+    });
+  }
+
+  salvar();
+  fecharModalMercado();
+  renderizar();
+}
+
+document.getElementById('modalMercado').addEventListener('click', function(e) {
+  if (e.target === this) fecharModalMercado();
 });
 
 // ─── Cartões de pagamento ─────────────────────────────────────────────────
@@ -2805,7 +3007,7 @@ function renderCartoes() {
       return `
         <div class="cat-item-row">
           <div class="cat-item-desc">${esc(i.desc)} ${fonteBadge}</div>
-          <div class="cat-item-meta">${i.pessoa}${i.parcela ? ` · ${i.parcela.atual}/${i.parcela.total}` : ''}</div>
+          <div class="cat-item-meta">${i.superTipo ? i.superTipo + ' · ' : ''}${i.pessoa}${i.parcela ? ` · ${i.parcela.atual}/${i.parcela.total}` : ''}</div>
           <div class="cat-item-valor">${fmt(i.valor)}</div>
         </div>`;
     }).join('');
