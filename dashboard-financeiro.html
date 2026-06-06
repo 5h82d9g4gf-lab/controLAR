@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>ControLAR</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1318,6 +1321,7 @@ function renderizarLista(lans) {
       <div>
         <div class="lancamento-desc">
           ${esc(l.desc)}
+          ${l.breakdown ? '<span title="Compra dividida" style="font-size:0.72rem;background:#dcfce7;color:#15803d;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">🛒 dividida</span>' : ''}
           ${l.recorrente
             ? '<span title="Recorrente" style="font-size:0.75rem;background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:2px 7px;margin-left:6px;cursor:default;">🔁</span>'
             : l.parcela
@@ -1326,8 +1330,9 @@ function renderizarLista(lans) {
           }
         </div>
         <div class="lancamento-meta" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-          ${l.cat}${l.subcat ? ' · ' + l.subcat : ''}${l.superTipo ? ' · ' + l.superTipo : ''} · ${l.pessoa}
+          ${l.cat}${l.subcat ? ' · ' + l.subcat : ''} · ${l.pessoa}
           ${l.cartao && l.cartao !== 'Dinheiro' ? badgeCartao(l.cartao) : ''}
+          ${l.breakdown ? '<span style="font-size:0.7rem;color:#16a34a;">(' + l.breakdown.map(p => p.nome + ' ' + fmt(p.valor)).join(' · ') + ')</span>' : ''}
         </div>
       </div>
       <span class="lancamento-valor ${l.tipo}">${l.tipo === 'receita' ? '+' : '-'}${fmt(l.valor)}</span>
@@ -1415,14 +1420,19 @@ function renderGraficoSubcat(cat, gastos) {
     return;
   }
   // Inclui TODOS os itens da categoria
-  // Supermercado dividido → "Supermercado · <bucket>" | Com subcat → subcat | Sem subcat → nome
+  // Compra dividida → distribui breakdown em "Supermercado · <bucket>" | Com subcat → subcat | Sem subcat → nome
   const filtrados = gastos.filter(l => l.cat === cat);
   const ag = {};
   filtrados.forEach(l => {
-    let key;
-    if (l.superTipo) key = 'Supermercado · ' + l.superTipo;
-    else key = l.subcat || l.desc;
-    ag[key] = (ag[key] || 0) + l.valor;
+    if (l.breakdown) {
+      l.breakdown.forEach(p => {
+        const key = 'Supermercado · ' + p.nome;
+        ag[key] = (ag[key] || 0) + p.valor;
+      });
+    } else {
+      const key = l.subcat || l.desc;
+      ag[key] = (ag[key] || 0) + l.valor;
+    }
   });
   const labels = Object.keys(ag).sort((a,b) => ag[b] - ag[a]);
   chartSubcat = desenharDoughnut('chartSubcat', chartSubcat, labels, labels.map(k => ag[k]));
@@ -1908,6 +1918,16 @@ function ajustarMoradiaMaio() {
   });
 
   state._ajustarMoradiaMaio = true;
+  salvar();
+}
+
+// ─── Limpeza dos lançamentos de teste superTipo (modelo antigo) ───────────
+function limparSuperTipoAntigo() {
+  if (state._limpouSuperTipo) return;
+  Object.values(state.meses).forEach(mes => {
+    mes.lancamentos = mes.lancamentos.filter(l => !l.superTipo);
+  });
+  state._limpouSuperTipo = true;
   salvar();
 }
 
@@ -2458,41 +2478,39 @@ function salvarMercado() {
   const pessoa = document.getElementById('mercPessoa').value;
   const cartao = cartaoMercado;
 
-  const partes = MERC_BUCKETS
+  const breakdown = MERC_BUCKETS
     .map(b => ({ nome: b.nome, valor: parseFloat(document.getElementById(b.id).value) || 0 }))
     .filter(p => p.valor > 0);
 
-  if (!partes.length) { alert('Informe ao menos um valor.'); return; }
+  if (!breakdown.length) { alert('Informe ao menos um valor.'); return; }
+  const total = breakdown.reduce((s,p) => s + p.valor, 0);
 
   // Parcelamento (opcional)
-  let parcelaInfo = null, restantes = 1, atual = 1, total = 1;
+  let restantes = 1, atual = 1, totalParc = 1;
   if (modoMercado === 'parcelado') {
     atual = parseInt(document.getElementById('mercParcelaAtual').value) || 1;
-    total = parseInt(document.getElementById('mercParcelas').value);
-    if (!total || total < 2) { alert('Informe o total de parcelas (mínimo 2).'); return; }
-    if (atual < 1 || atual > total) { alert(`Parcela atual entre 1 e ${total}.`); return; }
-    restantes = total - atual + 1;
+    totalParc = parseInt(document.getElementById('mercParcelas').value);
+    if (!totalParc || totalParc < 2) { alert('Informe o total de parcelas (mínimo 2).'); return; }
+    if (atual < 1 || atual > totalParc) { alert(`Parcela atual entre 1 e ${totalParc}.`); return; }
+    restantes = totalParc - atual + 1;
   }
 
   const rid = Date.now();
-  let idc = 0;
   for (let i = 0; i < restantes; i++) {
     const d = new Date(viewDate);
     d.setMonth(d.getMonth() + i);
-    const chave = chaveMs(d);
-    partes.forEach(p => {
-      getMes(chave).lancamentos.push({
-        id: rid + (idc++),
-        tipo: 'gasto',
-        desc,
-        valor: p.valor,
-        cat: 'Alimentação',
-        subcat: 'Supermercado',
-        superTipo: p.nome,
-        pessoa, cartao,
-        parcela: modoMercado === 'parcelado' ? { atual: atual + i, total } : undefined,
-        data: new Date().toISOString()
-      });
+    // UM único lançamento, com a divisão guardada em breakdown[]
+    getMes(chaveMs(d)).lancamentos.push({
+      id: rid + i,
+      tipo: 'gasto',
+      desc,
+      valor: total,
+      cat: 'Alimentação',
+      subcat: 'Supermercado',
+      breakdown: breakdown.map(p => ({ ...p })),
+      pessoa, cartao,
+      parcela: modoMercado === 'parcelado' ? { atual: atual + i, total: totalParc } : undefined,
+      data: new Date().toISOString()
     });
   }
 
@@ -3007,7 +3025,7 @@ function renderCartoes() {
       return `
         <div class="cat-item-row">
           <div class="cat-item-desc">${esc(i.desc)} ${fonteBadge}</div>
-          <div class="cat-item-meta">${i.superTipo ? i.superTipo + ' · ' : ''}${i.pessoa}${i.parcela ? ` · ${i.parcela.atual}/${i.parcela.total}` : ''}</div>
+          <div class="cat-item-meta">${i.pessoa}${i.parcela ? ` · ${i.parcela.atual}/${i.parcela.total}` : ''}${i.breakdown ? ' · 🛒 dividida' : ''}</div>
           <div class="cat-item-valor">${fmt(i.valor)}</div>
         </div>`;
     }).join('');
@@ -3277,6 +3295,7 @@ db.ref(DB_REF).on('value', snapshot => {
     seedCartaoXPMaio2026();
     patchDatasCartao('XP','2026-05', DATE_XP_0526);
     ajustarMoradiaMaio();
+    limparSuperTipoAntigo();
     corrigirCondominio();
     adicionarXPMaioDashboard();
     correcoesFuncionariosJunhoJulho();
